@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<!-- Asset_App.html — v2.7.0 (2026-07-14): saveEditLife() now calls Flow "Update Useful Life/EOL"
-     (CFG.flowUpdateLife) with old+new values so SharePoint + FA_AuditLog can be updated server-side;
-     falls back to local-only edit with a warning toast if that Flow URL isn't configured yet. -->
+<!-- Asset_App.html — v2.9.0 (2026-07-14): Asset transaction picker table now shows the full same field
+     set as Asset overview (FA No., Class, Cost center, Main-Sub, Site, Cost, Status, Serial, In-service,
+     Life, End of Life Date) with matching sortable headers + per-column filters. -->
 <html lang="th">
 <head>
 <script>(function(){try{var t=localStorage.getItem('asset_platform_theme')||'dark';if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
@@ -286,12 +286,12 @@ textarea{resize:vertical;min-height:60px}
 </div>
 
 <div id="txnpage" class="page">
-  <div class="page-header"><div><div class="page-title">Asset transaction</div><div class="page-sub">ค้นหาและเลือกได้หลายรายการ แล้วทำ Transfer / Return / Disposal พร้อมกันเป็นชุด</div></div></div>
+  <div class="page-header"><div><div class="page-title">Asset transaction</div><div class="page-sub">เลือกได้หลายรายการ แล้วทำ Transfer / Return / Disposal พร้อมกันเป็นชุด — พิมพ์ค้นหาได้ที่หัวตารางแต่ละคอลัมน์</div></div>
+  <div class="header-actions"><button class="btn btn-sm" onclick="clearTxnFilters()">🧹 Clear filter</button></div></div>
   <div class="card">
     <div class="card-header"><span class="card-title">1. เลือกทรัพย์สิน</span></div>
     <div style="padding:16px 18px">
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <input id="txp-search" placeholder="ค้นหา tag / description / owner..." style="flex:1;min-width:200px" oninput="renderTxnAssetOptions()">
         <select id="txp-class" onchange="renderTxnAssetOptions()" style="min-width:150px"><option value="">— ทุก class —</option></select>
         <select id="txp-eol" onchange="renderTxnAssetOptions()" style="min-width:150px"><option value="">— ทุกอายุการใช้งาน —</option><option value="eol">End of life เท่านั้น</option><option value="active">ยังไม่หมดอายุ</option></select>
         <select id="txp-type" onchange="txpBuildFields()" style="min-width:180px">
@@ -302,8 +302,42 @@ textarea{resize:vertical;min-height:60px}
         <div class="card-sub" id="txp-selcount" style="margin:0">ยังไม่ได้เลือกทรัพย์สิน</div>
         <button class="btn btn-sm" onclick="printLabelsFor([...txpSelected])" id="txp-print-btn" disabled>🏷️ พิมพ์ป้าย Tag ที่เลือก</button>
       </div>
-      <div class="table-wrap" style="max-height:280px;overflow-y:auto;border:0.5px solid var(--border);border-radius:8px">
-        <table><thead><tr><th style="width:30px"></th><th>Tag</th><th>Description</th><th>Entity</th><th>Owner</th><th class="text-right">NBV</th></tr></thead><tbody id="txp-rows"></tbody></table>
+      <div class="table-wrap" style="max-height:380px;overflow-y:auto;border:0.5px solid var(--border);border-radius:8px">
+        <table><thead>
+          <tr>
+            <th style="width:30px"></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'tag',renderTxnAssetOptions)">Tag<span id="txp-sort-tag"></span></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'faNo',renderTxnAssetOptions)">FA No.<span id="txp-sort-faNo"></span></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'desc',renderTxnAssetOptions)">Description<span id="txp-sort-desc"></span></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'class',renderTxnAssetOptions)">Class<span id="txp-sort-class"></span></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'entity',renderTxnAssetOptions)">Entity<span id="txp-sort-entity"></span></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'owner',renderTxnAssetOptions)">Owner<span id="txp-sort-owner"></span></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'cc',renderTxnAssetOptions)">Cost center<span id="txp-sort-cc"></span></th>
+            <th>Main-Sub</th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'site',renderTxnAssetOptions)">Site<span id="txp-sort-site"></span></th>
+            <th class="text-right th-sort" onclick="toggleSort(txpSort,'cost',renderTxnAssetOptions)">Cost<span id="txp-sort-cost"></span></th>
+            <th class="text-right th-sort" onclick="toggleSort(txpSort,'nbv',renderTxnAssetOptions)">NBV<span id="txp-sort-nbv"></span></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'status',renderTxnAssetOptions)">Status<span id="txp-sort-status"></span></th>
+            <th>Serial</th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'date',renderTxnAssetOptions)">In-service<span id="txp-sort-date"></span></th>
+            <th class="text-right th-sort" onclick="toggleSort(txpSort,'life',renderTxnAssetOptions)">Life (yr)<span id="txp-sort-life"></span></th>
+            <th class="th-sort" onclick="toggleSort(txpSort,'eol',renderTxnAssetOptions)">End of Life Date<span id="txp-sort-eol"></span></th>
+          </tr>
+          <tr>
+            <th></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-tag" oninput="renderTxnAssetOptions()" placeholder="🔍 tag"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-faNo" oninput="renderTxnAssetOptions()" placeholder="🔍 FA no."></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-desc" oninput="renderTxnAssetOptions()" placeholder="🔍 description"></th>
+            <th></th><th></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-owner" oninput="renderTxnAssetOptions()" placeholder="🔍 owner"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-cc" oninput="renderTxnAssetOptions()" placeholder="🔍 CC"></th>
+            <th></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-site" oninput="renderTxnAssetOptions()" placeholder="🔍 site"></th>
+            <th></th><th></th><th></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-serial" oninput="renderTxnAssetOptions()" placeholder="🔍 serial"></th>
+            <th></th><th></th><th></th>
+          </tr>
+        </thead><tbody id="txp-rows"></tbody></table>
       </div>
     </div>
   </div>
@@ -2887,7 +2921,7 @@ const DOA_MATRIX={
 let S=null, ENT='ALL', curCheck=null;
 /* ═══════════ GENERIC SORTABLE TABLE HEADERS ═══════════
    ใช้ร่วมกันได้ทุกตาราง — เก็บ state แยกต่อตาราง {key, dir} แล้วเรียก sortRows() ก่อน render */
-let ovSort={key:null,dir:1}, regSort={key:null,dir:1}, rqSort={key:null,dir:1};
+let ovSort={key:null,dir:1}, regSort={key:null,dir:1}, rqSort={key:null,dir:1}, txpSort={key:null,dir:1};
 function toggleSort(state,key,renderFn){if(state.key===key)state.dir*=-1;else{state.key=key;state.dir=1;}renderFn();}
 function sortArrow(state,key){return state.key===key?'<span style="color:var(--blue)">'+(state.dir===1?' ▲':' ▼')+'</span>':'';}
 function sortRows(list,state,valueFn){if(!state.key)return list;
@@ -4112,7 +4146,10 @@ function isEndOfLife(a){if(a.estimatedEOL)return new Date(a.estimatedEOL)<=new D
 function eolDate(a){if(a.estimatedEOL){const d=new Date(a.estimatedEOL);if(!isNaN(d))return d;}
   const d=new Date(a.date);d.setFullYear(d.getFullYear()+Number(a.life||0));return d;}
 function eolSource(a){return a.estimatedEOL&&!isNaN(new Date(a.estimatedEOL))?'Master':'คำนวณ';}
-function fmtDate(d){if(!d||isNaN(d))return '—';return d.toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'});}
+function fmtDate(d){return fmtDDMMYYYY(d);}
+function fmtDDMMYYYY(d){if(typeof d==='string')d=new Date(d);if(!d||isNaN(d))return '—';
+  const dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),yyyy=d.getFullYear();
+  return dd+'-'+mm+'-'+yyyy;}
 /* ═══ Disposal DOA v2 — resolveApprovalChain + DOA_MATRIX (ตาม TH-BNEXT-2025/004 + DOA_BPNEXT_General.pdf) ═══
    Register/Transfer ยังใช้ getOwnerSupervisor() เดิม (immediate supervisor เท่านั้น) ไม่เปลี่ยน */
 function findEmployeeByEmail(email){
@@ -4416,7 +4453,7 @@ function openAction(type,tag){
 function openEditLife(tag){
   const a=S.assets.find(x=>x.tag===tag);if(!a)return;
   document.getElementById('el-title').innerHTML='Edit Useful Life / EOL · <span class="mono" style="color:var(--teal)">'+tag+'</span><button class="btn btn-sm" onclick="closeModals()">✕</button>';
-  document.getElementById('el-current').innerHTML='In-service: <strong>'+(a.date||'—')+'</strong> · ปัจจุบัน EOL: <strong>'+fmtDate(eolDate(a))+'</strong> (<span class="badge b-gray" style="font-size:9px">'+eolSource(a)+'</span>)';
+  document.getElementById('el-current').innerHTML='In-service: <strong>'+fmtDDMMYYYY(a.date)+'</strong> · ปัจจุบัน EOL: <strong>'+fmtDate(eolDate(a))+'</strong> (<span class="badge b-gray" style="font-size:9px">'+eolSource(a)+'</span>)';
   document.getElementById('el-life').value=a.life||5;
   document.getElementById('el-eol').value=a.estimatedEOL||'';
   document.getElementById('el-submit').onclick=()=>saveEditLife(tag);
@@ -4442,8 +4479,13 @@ function saveEditLife(tag){
 /* ═══════════ ASSET TRANSACTION PAGE (multi-select) ═══════════ */
 let txpSelected=new Set();
 function txpToggle(tag){if(txpSelected.has(tag))txpSelected.delete(tag);else txpSelected.add(tag);renderTxnAssetOptions();}
+function clearTxnFilters(){
+  ['txp-f-tag','txp-f-faNo','txp-f-desc','txp-f-owner','txp-f-cc','txp-f-site','txp-f-serial'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['txp-class','txp-eol'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  txpSort={key:null,dir:1};renderTxnAssetOptions();toast('🧹 ล้าง filter ทั้งหมดแล้ว');}
 function renderTxnAssetOptions(){const rowsEl=document.getElementById('txp-rows');if(!rowsEl)return;
-  const q=(document.getElementById('txp-search').value||'').toLowerCase();
+  const gv=id=>(document.getElementById(id)?.value||'').toLowerCase();
+  const fTag=gv('txp-f-tag'),fFaNo=gv('txp-f-faNo'),fDesc=gv('txp-f-desc'),fOwner=gv('txp-f-owner'),fCc=gv('txp-f-cc'),fSite=gv('txp-f-site'),fSerial=gv('txp-f-serial');
   const clsF=document.getElementById('txp-class').value;
   const eolF=document.getElementById('txp-eol').value;
   const baseList=S.assets.filter(inScope).filter(a=>a.status==='Active'||a.status==='In Stock');
@@ -4452,14 +4494,17 @@ function renderTxnAssetOptions(){const rowsEl=document.getElementById('txp-rows'
   clsSel.innerHTML='<option value="">— ทุก class —</option>'+clsOptions.map(p=>'<option value="'+p+'"'+(p===prevCls?' selected':'')+'>'+p+' — '+classOf(p)+'</option>').join('');
   const validSet=new Set(baseList.map(a=>a.tag));
   [...txpSelected].forEach(t=>{if(!validSet.has(t))txpSelected.delete(t);});
-  const list=baseList.filter(a=>!q||a.tag.toLowerCase().includes(q)||a.desc.toLowerCase().includes(q)||a.owner.toLowerCase().includes(q))
+  const list=sortRows(baseList.filter(a=>
+      (!fTag||a.tag.toLowerCase().includes(fTag))&&(!fFaNo||(a.faNo||'').toLowerCase().includes(fFaNo))&&(!fDesc||a.desc.toLowerCase().includes(fDesc))
+      &&(!fOwner||a.owner.toLowerCase().includes(fOwner))&&(!fCc||(a.cc||'').toLowerCase().includes(fCc))&&(!fSite||a.site.toLowerCase().includes(fSite))&&(!fSerial||(a.serial||'').toLowerCase().includes(fSerial)))
     .filter(a=>!clsF||a.prefix===clsF)
-    .filter(a=>!eolF||(eolF==='eol'?isEndOfLife(a):!isEndOfLife(a)));
+    .filter(a=>!eolF||(eolF==='eol'?isEndOfLife(a):!isEndOfLife(a))),txpSort,ovColValue);
+  ['tag','faNo','desc','class','entity','owner','cc','site','cost','nbv','status','date','life','eol'].forEach(k=>{const el=document.getElementById('txp-sort-'+k);if(el)el.innerHTML=sortArrow(txpSort,k);});
   const selEntity=txpSelected.size?S.assets.find(a=>a.tag===[...txpSelected][0]).entity:null;
-  rowsEl.innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const locked=selEntity&&a.entity!==selEntity&&!txpSelected.has(a.tag);const eol=isEndOfLife(a);
+  rowsEl.innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const locked=selEntity&&a.entity!==selEntity&&!txpSelected.has(a.tag);const eol=isEndOfLife(a);const eolD=eolDate(a);
     return '<tr style="'+(locked?'opacity:.35':'cursor:pointer')+'" onclick="'+(locked?'':'txpToggle(\''+a.tag+'\')')+'">'
     +'<td><input type="checkbox" '+(txpSelected.has(a.tag)?'checked':'')+(locked?' disabled':'')+' onclick="event.stopPropagation();txpToggle(\''+a.tag+'\')"></td>'
-    +'<td class="mono">'+a.tag+'</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+a.desc+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td>'+entBadge(a.entity)+'</td><td class="text-muted">'+a.owner+'</td><td class="text-right">฿'+fmt(nbv)+'</td></tr>';}).join(''):'<tr><td colspan="6" class="empty">ไม่พบทรัพย์สิน</td></tr>';
+    +'<td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="max-width:220px;white-space:normal;word-break:break-word">'+a.desc+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td class="text-muted">'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+'</td></tr>';}).join(''):'<tr><td colspan="16" class="empty">ไม่พบทรัพย์สิน</td></tr>';
   document.getElementById('txp-selcount').textContent=txpSelected.size?('เลือกแล้ว '+txpSelected.size+' รายการ ('+selEntity+') — เลือกได้เฉพาะ entity เดียวกันในชุดเดียว'):'ยังไม่ได้เลือกทรัพย์สิน · พบ '+list.length+' รายการตาม filter';
   document.getElementById('txp-print-btn').disabled=!txpSelected.size;
   txpBuildFields();}
@@ -4527,7 +4572,7 @@ function txpSubmitBatch(type,tags){let detail={};
     detail={disposalJustification:just,disposalMethod:method,salePrice:price,techReportRef:ref,policeReportRef:ref,itDataWipeConfirmed:itwipe,note:document.getElementById('txp-b-note').value,batchGroupId:'BATCH-'+Date.now(),batchOwner:respOwner};
   }
   const created=tags.map(t=>createRequest(type,t,Object.assign({},detail)));
-  txpSelected.clear();document.getElementById('txp-type').value='';document.getElementById('txp-search').value='';
+  txpSelected.clear();document.getElementById('txp-type').value='';
   renderAll();toast('✓ สร้างคำขอ '+created.length+' รายการ — รออนุมัติ DOA');}
 
 /* ═══════════ RENDER: DASHBOARD ═══════════ */
@@ -4546,8 +4591,8 @@ function renderDash(){const list=S.assets.filter(inScope);
   document.getElementById('dash-entity-split').innerHTML=
     '<div class="split-bar"><div style="width:'+(nG/tot*100)+'%;background:var(--teal)"></div><div style="width:'+(nP/tot*100)+'%;background:var(--purple)"></div></div>'
    +'<div style="display:flex;gap:24px;margin-top:10px;font-size:12px;color:var(--text2)"><span><span class="badge b-bngs">BNGS</span> ฿'+fmt(nG)+' ('+S.assets.filter(a=>a.entity==='BNGS'&&a.status!=='Disposed'&&a.status!=='Rejected').length+' assets)</span><span><span class="badge b-bpnt">BPNT</span> ฿'+fmt(nP)+' ('+S.assets.filter(a=>a.entity==='BPNT'&&a.status!=='Disposed'&&a.status!=='Rejected').length+' assets)</span></div>';
-  document.getElementById('dash-pending').innerHTML=pend.length?pend.map(r=>'<tr onclick="showPage(\'approvals\',document.querySelector(\'[data-page=approvals]\'))" style="cursor:pointer"><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+' '+r.approverName+'</td><td class="text-muted">'+r.date+' · '+r.by+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">ไม่มีคำขอค้างอนุมัติ</td></tr>';
-  document.getElementById('dash-log').innerHTML=S.log.slice(0,8).map(l=>'<tr><td class="text-muted">'+l.date+'</td><td class="mono">'+l.tag+'</td><td>'+l.action+'</td><td class="text-muted">'+l.note+'</td><td class="text-muted">'+l.by+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">—</td></tr>';}
+  document.getElementById('dash-pending').innerHTML=pend.length?pend.map(r=>'<tr onclick="showPage(\'approvals\',document.querySelector(\'[data-page=approvals]\'))" style="cursor:pointer"><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+' '+r.approverName+'</td><td class="text-muted">'+fmtDDMMYYYY(r.date)+' · '+r.by+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">ไม่มีคำขอค้างอนุมัติ</td></tr>';
+  document.getElementById('dash-log').innerHTML=S.log.slice(0,8).map(l=>'<tr><td class="text-muted">'+fmtDDMMYYYY(l.date)+'</td><td class="mono">'+l.tag+'</td><td>'+l.action+'</td><td class="text-muted">'+l.note+'</td><td class="text-muted">'+l.by+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">—</td></tr>';}
 
 /* ═══════════ RENDER: REGISTER ═══════════ */
 function renderRegister(){const gv=id=>(document.getElementById(id)?.value||'').toLowerCase();
@@ -4561,7 +4606,7 @@ function renderRegister(){const gv=id=>(document.getElementById(id)?.value||'').
   ['tag','faNo','desc','entity','owner','site','cost','nbv','status'].forEach(k=>{const el=document.getElementById('reg-sort-'+k);if(el)el.innerHTML=sortArrow(regSort,k);});
   document.getElementById('reg-sub').textContent=list.length+' assets · Cost ฿'+fmt(list.reduce((s,a)=>s+a.cost,0))+' · NBV ฿'+fmt(list.filter(a=>a.status!=='Disposed').reduce((s,a)=>s+calcNBV(a).nbv,0));
   document.getElementById('reg-rows').innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const can=a.status==='Active'||a.status==='In Stock';
-    return '<tr><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+a.desc+'">'+a.desc+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+' · '+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td>'
+    return '<tr><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="max-width:280px;white-space:normal;word-break:break-word">'+a.desc+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+' · '+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td>'
     +'<td style="white-space:nowrap"><button class="btn btn-sm" title="พิมพ์ป้าย Tag" onclick="printLabelsFor([\''+a.tag+'\'])">🏷️</button> <button class="btn btn-sm" title="แก้ไข Useful Life / EOL" onclick="openEditLife(\''+a.tag+'\')">✏️</button> '+(can?'<button class="btn btn-sm" title="Transfer" onclick="openAction(\'Transfer\',\''+a.tag+'\')">⇄</button> <button class="btn btn-sm" title="Return" onclick="openAction(\'Return\',\''+a.tag+'\')">⤺</button> <button class="btn btn-sm btn-red" title="Disposal" onclick="openAction(\'Disposal\',\''+a.tag+'\')">✕</button>':'')+'</td></tr>'}).join(''):'<tr><td colspan="11" class="empty">ไม่พบทรัพย์สิน</td></tr>';}
 function clearRegisterFilters(){
   ['reg-f-tag','reg-f-faNo','reg-f-desc','reg-f-owner','reg-f-cc','reg-f-site'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -4588,7 +4633,7 @@ function renderOverview(){const rowsEl=document.getElementById('ov-rows');if(!ro
   ['tag','faNo','desc','class','entity','owner','cc','site','cost','nbv','status','date','life','eol'].forEach(k=>{const el=document.getElementById('ov-sort-'+k);if(el)el.innerHTML=sortArrow(ovSort,k);});
   document.getElementById('ov-count').textContent=list.length+' รายการ (จากทั้งหมด '+all.length+') · Cost รวม ฿'+fmt(list.reduce((s,a)=>s+a.cost,0))+' · NBV รวม ฿'+fmt(list.filter(a=>a.status!=='Disposed').reduce((s,a)=>s+calcNBV(a).nbv,0));
   rowsEl.innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const eol=isEndOfLife(a);const eolD=eolDate(a);
-    return '<tr><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+a.desc+'">'+a.desc+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="text-muted">'+a.date+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDate(eolD)+' <span class="badge b-gray" style="font-size:8.5px;vertical-align:middle" title="'+(eolSource(a)==='Master'?'มาจาก master Estimated EOL':'คำนวณจาก In-service + Useful life')+'">'+eolSource(a)+'</span></td></tr>';}).join(''):'<tr><td colspan="16" class="empty">ไม่พบทรัพย์สินตาม filter ที่เลือก</td></tr>';}
+    return '<tr><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="max-width:260px;white-space:normal;word-break:break-word">'+a.desc+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+' <span class="badge b-gray" style="font-size:8.5px;vertical-align:middle" title="'+(eolSource(a)==='Master'?'มาจาก master Estimated EOL':'คำนวณจาก In-service + Useful life')+'">'+eolSource(a)+'</span></td></tr>';}).join(''):'<tr><td colspan="16" class="empty">ไม่พบทรัพย์สินตาม filter ที่เลือก</td></tr>';}
 function clearOverviewFilters(){
   ['ov-f-tag','ov-f-faNo','ov-f-desc','ov-f-owner','ov-f-cc','ov-f-site','ov-f-serial'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['ov-class','ov-status','ov-owner','ov-site','ov-eol'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -4612,7 +4657,7 @@ function renderApprovals(){const pend=S.requests.filter(r=>r.status==='Pending'&
     const chainTxt=(r.chain&&r.chain.length>1)?' <span class="text-muted" style="font-size:11px">(chain: '+r.chain.map(p=>p.name).join(' → ')+')</span>':'';
     const ackTxt=r.ack?'<div class="text-muted" style="font-size:11px;margin-top:4px">Ack: '+r.ack.deptHead+' → '+r.ack.assetMgmt+' → '+r.ack.controller+' → CFO ('+r.ack.cfo+')</div>':'';
     return '<div class="req-card"><div class="req-main"><div class="req-title"><span class="mono" style="color:var(--text2)">'+r.id+'</span> <span class="badge b-pending">'+r.type+'</span> '+entBadge(r.entity)+' <span class="mono">'+r.tag+'</span>'+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+'</div>'
-    +'<div class="req-detail">'+a.desc+'<br>'+summaryOf(r)+'<br>NBV ฿'+fmt(r.nbv)+' · ขอโดย '+r.by+' · '+r.date+'</div>'
+    +'<div class="req-detail">'+a.desc+'<br>'+summaryOf(r)+'<br>NBV ฿'+fmt(r.nbv)+' · ขอโดย '+r.by+' · '+fmtDDMMYYYY(r.date)+'</div>'
     +'<div class="flow-rail"><span class="rail-step">Requested</span><span class="rail-arrow">→</span><span class="rail-step on">'+lvlBadge(r.level)+' '+r.approverRole+' · '+r.approverName+chainTxt+'</span><span class="rail-arrow">→</span><span class="rail-step">Applied</span></div>'+ackTxt+'</div>'
     +(CFG.flowSubmit
       ?'<div class="req-actions"><span class="badge b-pending" style="padding:6px 10px">⏳ รออนุมัติใน Teams — '+r.approverName+'</span></div></div>'
@@ -4621,7 +4666,7 @@ function renderApprovals(){const pend=S.requests.filter(r=>r.status==='Pending'&
 function renderRequests(){const ft=document.getElementById('rq-type').value,fs=document.getElementById('rq-status').value;
   const list=sortRows(S.requests.filter(inScope).filter(r=>(!ft||r.type===ft)&&(!fs||r.status===fs)),rqSort,rqColValue);
   ['request','type','tag','entity','nbv','level','status'].forEach(k=>{const el=document.getElementById('rq-sort-'+k);if(el)el.innerHTML=sortArrow(rqSort,k);});
-  document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+r.approveDate:'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';}
+  document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+fmtDDMMYYYY(r.approveDate):'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';}
 function clearRequestsFilters(){
   ['rq-type','rq-status'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   rqSort={key:null,dir:1};renderRequests();toast('🧹 ล้าง filter ทั้งหมดแล้ว');}
@@ -4676,7 +4721,7 @@ function renderReport(){const mv=document.getElementById('rp-month').value||new 
   const byType={Register:0,Transfer:0,Return:0,Disposal:0};txns.forEach(r=>byType[r.type]=(byType[r.type]||0)+1);
   document.getElementById('rp-txn-metrics').innerHTML=['Register','Transfer','Return','Disposal'].map(t=>
     '<div class="metric"><div class="metric-label">'+t+'</div><div class="metric-value">'+(byType[t]||0)+'</div></div>').join('');
-  document.getElementById('rp-txn-rows').innerHTML=txns.length?txns.map(r=>'<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:280px">'+summaryOf(r)+'</td><td class="text-muted">'+r.approver+'</td><td class="text-muted">'+r.approveDate+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">ไม่มี transaction ที่ approved ในเดือนนี้</td></tr>';}
+  document.getElementById('rp-txn-rows').innerHTML=txns.length?txns.map(r=>'<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:280px">'+summaryOf(r)+'</td><td class="text-muted">'+r.approver+'</td><td class="text-muted">'+fmtDDMMYYYY(r.approveDate)+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">ไม่มี transaction ที่ approved ในเดือนนี้</td></tr>';}
 
 /* ═══════════ EXPORT CSV (UTF-8 BOM) ═══════════ */
 function dlCSV(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>{const s=String(v==null?'':v);return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\n');
