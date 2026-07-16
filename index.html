@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<!-- Asset_App.html — v2.9.0 (2026-07-14): Asset transaction picker table now shows the full same field
-     set as Asset overview (FA No., Class, Cost center, Main-Sub, Site, Cost, Status, Serial, In-service,
-     Life, End of Life Date) with matching sortable headers + per-column filters. -->
+<!-- Asset_App.html — v2.10.0 (2026-07-16): Flow 7 (Get Requests Sync) wired up — syncRequestsFromSharePoint()
+     now maps the real field names confirmed from Power Automate test run (request_id, asset_tag, fa_number,
+     entity, request_type, detail_json, nbv_at_request, doa_level, requested_by, request_date, status,
+     approver, approval_comment, approve_date). Settings label no longer shows "ยังไม่ได้ build" warning. -->
 <html lang="th">
 <head>
 <script>(function(){try{var t=localStorage.getItem('asset_platform_theme')||'dark';if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
@@ -404,7 +405,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="form-group"><label>Flow 4 · Physical Check → LOSS</label><input id="cfg-flow-pc" class="mono" placeholder="https://...powerautomate.../pc-loss..."></div>
       <div class="form-group"><label>Flow 5 · Update FA No. (Bulk, หลังปิดงบ)</label><input id="cfg-flow-fano" class="mono" placeholder="https://...powerautomate.../fano-update..."></div>
       <div class="form-group"><label>Flow 6 · Get Assets from SharePoint (Sync)</label><input id="cfg-flow-getassets" class="mono" placeholder="https://...powerautomate.../get-assets..."></div>
-      <div class="form-group"><label>Flow 7 · Get Requests from SharePoint (Sync) — ⚠ ยังไม่ได้ build</label><input id="cfg-flow-getrequests" class="mono" placeholder="https://...powerautomate.../get-requests..."></div>
+      <div class="form-group"><label>Flow 7 · Get Requests from SharePoint (Sync)</label><input id="cfg-flow-getrequests" class="mono" placeholder="https://...powerautomate.../get-requests..."></div>
       <div class="form-group"><label>Flow 8 · Update Useful Life / EOL (+ Audit Log) — ⚠ ยังไม่ได้ build</label><input id="cfg-flow-updatelife" class="mono" placeholder="https://...powerautomate.../update-life..."></div>
       <div class="form-group"><label>API Secret Header (x-api-key) — ป้องกัน unauthorized call</label><input id="cfg-api-key" class="mono" type="password" placeholder="ค่าลับที่ตั้งใน Flow condition"></div>
       <div class="form-group"><label>GitHub Pages URL (สำหรับ reference)</label><input id="cfg-app-url" class="mono" placeholder="https://[user].github.io/[repo]/"></div>
@@ -4017,23 +4018,28 @@ function normalizeStatus(raw){
   return raw||'Active';}
 
 /* ═══════════ SYNC REQUESTS FROM SHAREPOINT (Approvals / Requests log = source of truth) ═══════════
-   ดึงสถานะ request ทั้งหมดจาก 02_FA_Requests ผ่าน Flow "Get Requests Sync" แล้วแทนที่ S.requests
+   ดึงสถานะ request ทั้งหมดจาก 02_FA_Requests ผ่าน Flow "FA-Sync-Requests" (Flow 7) แล้วแทนที่ S.requests
    ทั้งก้อน — ทำให้เห็นผล Approve/Reject จริงที่เกิดขึ้นใน Teams สะท้อนกลับมาที่แอป
-   ⚠ Flow นี้ยังไม่เคย build ต้องสร้างใหม่ก่อนใช้งานได้จริง (ดู build steps ที่ขอไว้) */
+   Field mapping ยืนยันจาก test run จริงกับ 02_FA_Requests (Jul 2026):
+     request_id, asset_tag, fa_number, entity, request_type, detail_json, nbv_at_request,
+     doa_level, requested_by, request_date, status, approver, approval_comment, approve_date
+   ⚠ Flow ต้องคืน Response body เป็น {"requests":[...]} (object ห่อ array) ไม่ใช่ array เปล่าๆ
+     เพื่อให้ตรงกับ pattern เดียวกับ Flow 6 ({"assets":[...]}) — ถ้า Flow 7 Response ยังเป็น
+     @body('Select') ตรงๆ (array เปล่า) ให้แก้ Response action เป็น {"requests": <output ของ Select>} */
 async function syncRequestsFromSharePoint(){
-  if(!CFG.flowGetRequests){toast('⚠ กรุณาตั้งค่า Flow "Get Requests Sync" URL ก่อนใน Settings (ต้อง build Flow นี้ใน Power Automate ก่อน)','warn');return;}
+  if(!CFG.flowGetRequests){toast('⚠ กรุณาตั้งค่า Flow "Get Requests Sync" URL ก่อนใน Settings','warn');return;}
   const btn=document.getElementById('sync-req-btn');const orig=btn?btn.textContent:'';
   if(btn){btn.disabled=true;btn.textContent='🔄 กำลัง sync...';}
   const result=await sendToFlowURLJSON(CFG.flowGetRequests,{});
   if(btn){btn.disabled=false;btn.textContent=orig;}
-  if(!result||!Array.isArray(result.requests)){toast('❌ Sync ไม่สำเร็จ — เช็ค Flow URL / connection','warn');return;}
+  if(!result||!Array.isArray(result.requests)){toast('❌ Sync ไม่สำเร็จ — เช็ค Flow URL / connection / Response format','warn');return;}
   const mapped=result.requests.map(x=>({
-    id:x.id||x.title,type:x.type,entity:x.entity||'',tag:x.tag||x.assetTag||'',
-    detail:(()=>{try{return typeof x.detail==='string'?JSON.parse(x.detail):(x.detail||{});}catch(e){return {};}})(),
-    nbv:Number(x.nbv)||0,level:x.level||'',approverName:x.approver||x.approverName||'',approverRole:x.approverRole||'',
-    isSupRoute:x.level==='SUP',chain:x.chain||null,ack:x.ack||null,committeeRequired:!!x.committeeRequired,
-    by:x.by||x.requestedBy||'',date:x.date||x.requestDate||'',status:x.status||x.approvalStatus||'Pending',
-    approver:x.approver||'',approveDate:x.approveDate||''
+    id:x.request_id||'',type:x.request_type||'',entity:x.entity||'',tag:x.asset_tag||'',faNo:x.fa_number||'',
+    detail:(()=>{try{return typeof x.detail_json==='string'?JSON.parse(x.detail_json):(x.detail_json||{});}catch(e){return {};}})(),
+    nbv:Number(x.nbv_at_request)||0,level:x.doa_level||'',approverName:x.approver||'',approverRole:'',
+    isSupRoute:x.doa_level==='SUP',chain:null,ack:null,committeeRequired:false,
+    by:x.requested_by||'',date:x.request_date||'',status:x.status||'Pending',
+    approver:x.approver||'',rejectReason:x.approval_comment||'',approveDate:x.approve_date||''
   })).filter(r=>r.id);
   S.requests=mapped;save();renderAll();
   toast('✓ Sync แล้ว '+mapped.length+' requests จาก SharePoint (แทนที่ข้อมูลเดิมในแอปทั้งหมด)');}
