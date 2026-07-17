@@ -1,114 +1,148 @@
 <!DOCTYPE html>
-<!-- Asset_App.html — v2.10.1 (2026-07-17): Bugfix — renderApprovals() crashed (Cannot read properties
-     of undefined reading 'desc') when a synced request references an asset tag not found in S.assets
-     (e.g. leftover test records like DRON-10002/MOTC-10013 that were never real assets). Now shows a
-     "⚠ ไม่พบ asset" badge + fallback text instead of throwing. Root cause: clean up test records in
-     02_FA_Requests before production use (see pending list). -->
+<!-- Asset_App.html — v2.12.0 (2026-07-17): Branding update — renamed app to "BPNT Asset App" (page title +
+     sidebar logo text); logo mark icon changed from lightning bolt to a solar-panel grid icon, and the
+     accent gradient (used on the logo mark, active-nav indicator bar, and avatar chip) changed from
+     teal→amber to a mint-green→dark-green gradient.
+     Carried over from v2.11.9: removed legacy DOA matrix card from Settings (superseded by Flow 1's
+     real chain-walk routing); meaningful FA-Custodian fallback instead of a fake placeholder name.
+     Carried over from v2.11.8: entity switch outlined-pill colors, removed Entity config card, Main/Sub
+     account add-form, 10-row scroll + search on Cost center/Prefix catalog/Main-Sub account master.
+     Carried over from v2.11.7: stronger resting card/metric shadows.
+     Carried over from v2.11.6: approval badge red.
+     Carried over from v2.11.5: donut chart on Dashboard (live data, category → class → asset drill-down).
+     Carried over from v2.11.4: Description column reflow fix + width lock.
+     Carried over from v2.11.3: header style (bold + blue underline on active-sort column), Description
+     click-to-expand popup.
+     Carried over from v2.11.2: Main-Sub column filter, scroll-hint arrow on wide tables.
+     Carried over from v2.11.1: sidebar nav emoji + bold text.
+     Carried over from v2.11.0: Full visual redesign, floating dropdown autocomplete on every
+     search/filter input, merged "Asset overview" into "Asset register".
+     Carried over from v2.10.1: Bugfix — renderApprovals() crashed when a synced request references an
+     asset tag not found in S.assets. Now shows a "⚠ ไม่พบ asset" badge instead of throwing. -->
 <html lang="th">
 <head>
 <script>(function(){try{var t=localStorage.getItem('asset_platform_theme')||'dark';if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Asset Platform V2 · BNGS + BPNT</title>
+<title>BPNT Asset App · BNGS + BPNT</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0e0f12;--bg2:#15161b;--bg3:#1c1e25;--card:#20222b;--border:#2c2f3a;--border2:#3a3e4d;
---text:#f2f3f8;--text2:#adaebf;--text3:#7c7f94;
+:root{--bg:#0b0c0f;--bg2:#131419;--bg3:#1a1c23;--card:#181a20;--border:#262832;--border2:#363945;
+--text:#f1f2f6;--text2:#9799ac;--text3:#5c5f72;
 --teal:#2fd4a4;--teal-dim:#0d2b22;--purple:#a78bfa;--purple-dim:#211840;
---blue:#4f8ef7;--blue-dim:#16233d;--amber:#f5a623;--amber-dim:#2e2108;
---red:#f05252;--red-dim:#2d1010;--green:#3ecf7a;--green-dim:#0f2d1e;
---radius:8px;--radius-lg:12px;--shadow:0 8px 24px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.3)}
-[data-theme="light"]{--bg:#f4f5f7;--bg2:#ffffff;--bg3:#eef0f3;--card:#ffffff;--border:#e2e4ea;--border2:#d3d6de;
---text:#1b1d24;--text2:#5b5e6d;--text3:#6b6e7d;
+--blue:#5b9dff;--blue-dim:#16233d;--amber:#f5a623;--amber-dim:#2e2108;
+--red:#f0605c;--red-dim:#2d1010;--green:#3ecf7a;--green-dim:#0f2d1e;
+--accent-grad:linear-gradient(135deg,#6ee7c4,#0d7a5f);
+--radius:9px;--radius-lg:14px;--ease:cubic-bezier(.2,.7,.3,1);
+--shadow:0 6px 20px -6px rgba(0,0,0,.5);--shadow-sm:0 4px 14px -2px rgba(0,0,0,.4),0 2px 5px rgba(0,0,0,.3);--shadow-md:0 10px 28px -6px rgba(0,0,0,.55),0 3px 8px rgba(0,0,0,.35)}
+[data-theme="light"]{--bg:#f3f4f7;--bg2:#ffffff;--bg3:#eef0f4;--card:#ffffff;--border:#e4e6ec;--border2:#d3d6de;
+--text:#181a20;--text2:#5b5e6d;--text3:#767a8a;
 --teal:#0a7d5a;--teal-dim:#e1f5ee;--purple:#6435d1;--purple-dim:#efeafe;
---blue:#2f6fe0;--blue-dim:#e8f0fe;--amber:#8a5a00;--amber-dim:#fdf1dc;
+--blue:#2f6fe0;--blue-dim:#e8f0fe;--amber:#95610a;--amber-dim:#fdf1dc;
 --red:#c53434;--red-dim:#fbeaea;--green:#177a44;--green-dim:#e7f7ed;
---shadow:0 8px 20px rgba(20,20,30,.10),0 2px 6px rgba(20,20,30,.08)}
+--shadow:0 10px 24px -10px rgba(20,20,40,.15);--shadow-sm:0 4px 14px -2px rgba(20,20,40,.1),0 2px 5px rgba(20,20,40,.06);--shadow-md:0 12px 28px -6px rgba(20,20,40,.16),0 3px 8px rgba(20,20,40,.08)}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;transition:background .2s,color .2s}
-.card,.req-card,.metric{box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s}
-.metric:hover,.req-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,.5),0 3px 8px rgba(0,0,0,.35)}
-[data-theme="light"] .metric:hover,[data-theme="light"] .req-card:hover{box-shadow:0 12px 24px rgba(20,20,30,.14),0 3px 8px rgba(20,20,30,.1)}
-.theme-toggle{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 6px;cursor:pointer}
-.theme-toggle span{font-size:13px;padding:3px 8px;border-radius:14px;transition:all .15s;color:var(--text3)}
-.theme-toggle span.on{background:var(--card);color:var(--amber)}
+*:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;transition:background .2s,color .2s;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-track{background:transparent}
+.card,.metric{box-shadow:var(--shadow-sm);transition:transform .15s var(--ease),box-shadow .15s var(--ease)}
+.metric:hover,.req-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.theme-toggle{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 6px;cursor:pointer;transition:border-color .15s var(--ease)}
+.theme-toggle:hover{border-color:var(--border2)}
+.theme-toggle span{font-size:13px;padding:3px 8px;border-radius:14px;transition:all .15s var(--ease);color:var(--text3);line-height:1}
+.theme-toggle span.on{background:var(--card);color:var(--amber);box-shadow:var(--shadow-sm)}
 .theme-toggle span.on.moon{color:var(--purple)}
 .mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px}
 .shell{display:flex;height:100vh;overflow:hidden}
-.sidebar{width:224px;flex-shrink:0;background:var(--bg2);border:1px solid var(--border2);display:flex;flex-direction:column}
-.main{flex:1;overflow-y:auto;padding-bottom:48px}
-.logo{padding:18px 20px 12px;border-bottom:1px solid var(--border)}
-.logo-title{font-size:15px;font-weight:600;letter-spacing:-.3px}
-.logo-sub{font-size:11px;color:var(--text3);margin-top:2px}
-.nav{padding:10px 8px;flex:1;overflow-y:auto}
-.nav-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:13px;font-weight:600;transition:all .15s;margin-bottom:2px;border:none;border-left:3px solid transparent;background:none;width:100%;text-align:left;position:relative}
-.nav-item:hover{background:var(--bg3);color:var(--text);border-left-color:var(--border2)}
-.nav-item.active{background:var(--blue-dim);color:var(--blue);font-weight:700;border-left-color:var(--blue)}
-.nav-section{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:12px 12px 4px;font-weight:500}
-.nav-badge{margin-left:auto;background:var(--amber);color:#1a1403;font-size:10px;font-weight:600;border-radius:9px;padding:1px 7px;min-width:18px;text-align:center}
-.save-indicator{display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:11px;color:var(--text3);border-top:1px solid var(--border)}
-.save-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:20}
-.ent-switch{display:flex;gap:6px;background:var(--bg3);padding:4px;border-radius:10px;border:1px solid var(--border);box-shadow:0 4px 12px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2)}
-[data-theme="light"] .ent-switch{box-shadow:0 4px 10px rgba(20,20,30,.1),0 1px 3px rgba(20,20,30,.06)}
-.ent-pill{padding:5px 16px;border-radius:7px;font-size:12.5px;color:var(--text2);cursor:pointer;border:none;background:none;font-weight:600;transition:all .15s}
-.ent-pill:hover{color:var(--text);transform:translateY(-1px)}
-.ent-pill.active[data-e="ALL"]{background:var(--bg);color:var(--text);font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,.35),0 1px 2px rgba(0,0,0,.2)}
-.ent-pill.active[data-e="BNGS"]{background:var(--teal-dim);color:var(--teal);font-weight:700;box-shadow:0 3px 10px rgba(47,212,164,.3),0 1px 2px rgba(0,0,0,.2)}
-.ent-pill.active[data-e="BPNT"]{background:var(--purple-dim);color:var(--purple);font-weight:700;box-shadow:0 3px 10px rgba(167,139,250,.3),0 1px 2px rgba(0,0,0,.2)}
-[data-theme="light"] .ent-pill.active[data-e="ALL"]{box-shadow:0 3px 8px rgba(20,20,30,.12),0 1px 2px rgba(20,20,30,.08)}
-.topbar-user{font-size:12px;color:var(--text2)}
-.page{display:none;animation:fade .2s}
+.sidebar{width:232px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:left .25s var(--ease);z-index:50}
+.logo{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px}
+.logo-mark{width:34px;height:34px;border-radius:10px;background:var(--accent-grad);flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md)}
+.logo-mark svg{width:18px;height:18px;stroke:#12141a;stroke-width:2.2}
+.logo-text{min-width:0}
+.logo-title{font-size:14.5px;font-weight:600;letter-spacing:-.2px;white-space:nowrap}
+.logo-sub{font-size:10.5px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav{padding:12px 10px;flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:13px;font-weight:600;transition:all .15s var(--ease);margin-bottom:1px;border:none;background:none;width:100%;text-align:left;position:relative}
+.nav-icon{width:16px;height:16px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--blue-dim);color:var(--blue);font-weight:700}
+.nav-item.active::before{content:'';position:absolute;left:-10px;top:50%;transform:translateY(-50%);width:3px;height:60%;border-radius:0 3px 3px 0;background:var(--accent-grad)}
+.nav-item.active .nav-icon{opacity:1}
+.nav-section{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.9px;padding:14px 11px 5px;font-weight:600}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:9px;padding:1px 7px;min-width:18px;text-align:center}
+.save-indicator{display:flex;align-items:center;gap:7px;padding:12px 17px;font-size:11px;color:var(--text3);border-top:1px solid var(--border)}
+.save-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-dim)}
+.hamburger{display:none;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;flex-shrink:0}
+.hamburger svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.sidebar-scrim{display:none}
+.main{flex:1;overflow-y:auto;padding-bottom:48px;min-width:0}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:13px 28px;border-bottom:1px solid var(--border);background:rgba(19,20,25,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:sticky;top:0;z-index:20;gap:14px}
+[data-theme="light"] .topbar{background:rgba(255,255,255,.8)}
+.ent-switch{display:flex;gap:4px;background:var(--bg3);padding:4px;border-radius:10px;border:1px solid var(--border)}
+.ent-pill{padding:5px 16px;border-radius:7px;font-size:12.5px;color:var(--text2);cursor:pointer;border:1px solid transparent;background:none;font-weight:500;transition:all .15s var(--ease)}
+.ent-pill:hover{color:var(--text)}
+.ent-pill.active[data-e="ALL"]{background:var(--card);color:var(--text);font-weight:600;box-shadow:var(--shadow-sm)}
+.ent-pill.active[data-e="BNGS"]{background:var(--teal-dim);color:var(--teal);font-weight:600;border-color:var(--teal)}
+.ent-pill.active[data-e="BPNT"]{background:var(--purple-dim);color:var(--purple);font-weight:600;border-color:var(--purple)}
+.topbar-user{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:9px;white-space:nowrap}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#12141a;flex-shrink:0}
+.page{display:none;animation:fade .25s var(--ease)}
 .page.active{display:block}
-@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.page-header{display:flex;align-items:flex-start;justify-content:space-between;padding:22px 28px 0;flex-wrap:wrap;gap:12px}
-.page-title{font-size:20px;font-weight:600;letter-spacing:-.4px}
-.page-sub{font-size:13px;color:var(--text3);margin-top:2px}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;padding:24px 28px 0;flex-wrap:wrap;gap:12px}
+.page-title{font-size:21px;font-weight:600;letter-spacing:-.4px}
+.page-sub{font-size:13px;color:var(--text3);margin-top:3px;line-height:1.5}
 .header-actions{display:flex;gap:8px;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;box-shadow:0 2px 6px rgba(0,0,0,.25),0 1px 2px rgba(0,0,0,.2)}
-[data-theme="light"] .btn{box-shadow:0 2px 6px rgba(20,20,30,.08),0 1px 2px rgba(20,20,30,.06)}
-.btn:hover{border-color:var(--text3);transform:translateY(-1px);box-shadow:0 6px 14px rgba(0,0,0,.35),0 2px 4px rgba(0,0,0,.25)}
-[data-theme="light"] .btn:hover{box-shadow:0 6px 14px rgba(20,20,30,.14),0 2px 4px rgba(20,20,30,.08)}
-.btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(0,0,0,.2)}
-.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
-.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 3px 10px rgba(79,142,247,.4),0 1px 3px rgba(0,0,0,.2)}
-.btn-primary:hover{opacity:.94;box-shadow:0 8px 18px rgba(79,142,247,.5),0 2px 4px rgba(0,0,0,.25)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s var(--ease)}
+.btn:hover{border-color:var(--text3);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-primary:hover{opacity:.92;box-shadow:0 6px 16px -6px var(--blue)}
 .btn-green{background:var(--green-dim);border-color:rgba(62,207,122,.35);color:var(--green)}
 .btn-amber{background:var(--amber-dim);border-color:rgba(245,166,35,.35);color:var(--amber)}
 .btn-red{background:var(--red-dim);border-color:rgba(240,82,82,.35);color:var(--red)}
-.btn-sm{padding:4px 11px;font-size:12px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:18px 28px}
-.metric{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:var(--radius-lg);padding:14px 16px}
+.btn-sm{padding:3px 9px;font-size:12px;border-radius:6px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:20px 28px}
+.metric{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:var(--radius-lg);padding:15px 17px}
 .metric.m-blue{border-left-color:var(--blue)}
 .metric.m-green{border-left-color:var(--green)}
 .metric.m-amber{border-left-color:var(--amber)}
 .metric.m-red{border-left-color:var(--red)}
 .metric.m-purple{border-left-color:var(--purple)}
 .metric.m-teal{border-left-color:var(--teal)}
-.metric-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
-.metric-value{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.5px;color:var(--text)}
-.metric-sub{font-size:11.5px;color:var(--text2);margin-top:2px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);margin:0 28px 16px;overflow:hidden}
-.card-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.card-title{font-size:13.5px;font-weight:600}
+.metric-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.metric-value{font-size:23px;font-weight:600;margin-top:5px;letter-spacing:-.5px;color:var(--text);font-variant-numeric:tabular-nums}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);margin:0 28px 16px;overflow:hidden;position:relative}
+.scroll-hint{position:absolute;top:0;bottom:0;right:0;width:34px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .2s var(--ease);background:linear-gradient(to right, transparent, var(--card) 65%);z-index:8}
+.scroll-hint.show{opacity:1}
+.scroll-hint svg{width:15px;height:15px;stroke:var(--text2);fill:none;stroke-width:2.2;animation:scrollnudge 1.4s ease-in-out infinite}
+@keyframes scrollnudge{0%,100%{transform:translateX(0)}50%{transform:translateX(3px)}}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card-title{font-size:13.5px;font-weight:600;letter-spacing:-.1px}
 .card-sub{font-size:11.5px;color:var(--text3)}
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
-th{text-align:left;padding:9px 14px;color:var(--text2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border2);white-space:nowrap}
-th.th-sort{cursor:pointer;user-select:none;transition:color .15s}
+th{text-align:left;padding:10px 14px;color:var(--text3);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border2);white-space:nowrap;background:var(--bg3)}
+th.th-sort{cursor:pointer;user-select:none;transition:color .15s var(--ease),border-color .15s var(--ease)}
 th.th-sort:hover{color:var(--text)}
-th.th-filter{position:relative;padding:5px 6px}
-.col-filter-input{width:100%;min-width:0;box-sizing:border-box;padding:4px 6px;font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;color:var(--text)}
-.col-filter-input:focus{position:absolute;left:4px;top:2px;z-index:60;width:auto;min-width:220px;max-width:320px;box-shadow:0 10px 26px rgba(0,0,0,.45),0 3px 8px rgba(0,0,0,.3);background:var(--card);border-color:var(--blue)}
-[data-theme="light"] .col-filter-input:focus{box-shadow:0 10px 22px rgba(20,20,30,.18),0 3px 8px rgba(20,20,30,.1)}
-td{padding:9px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+th.th-sort-active{border-bottom-color:var(--blue);color:var(--text)}
+th.th-filter{position:relative;padding:5px 6px;background:var(--bg3)}
+.col-filter-input{width:100%;min-width:0;box-sizing:border-box;padding:4px 6px;font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;color:var(--text);transition:border-color .15s var(--ease)}
+.col-filter-input:hover{border-color:var(--text3)}
+.col-filter-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim);background:var(--card)}
+td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
 tr:last-child td{border-bottom:none}
+tbody tr{transition:background .12s var(--ease)}
 tbody tr:nth-child(even){background:var(--bg3)}
 tbody tr:hover{background:var(--border)}
 .text-right{text-align:right}
 .text-muted{color:var(--text2)}
-.empty{text-align:center;color:var(--text3);padding:36px 12px!important}
-.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.empty{text-align:center;color:var(--text3);padding:44px 12px!important;font-size:13px}
+.badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;letter-spacing:.1px}
 .b-bngs{background:var(--teal-dim);color:var(--teal)}
 .b-bpnt{background:var(--purple-dim);color:var(--purple)}
 .b-active{background:var(--green-dim);color:var(--green)}
@@ -121,60 +155,86 @@ tbody tr:hover{background:var(--border)}
 .b-l1{background:var(--green-dim);color:var(--green)}
 .b-l2{background:var(--amber-dim);color:var(--amber)}
 .b-l3{background:var(--red-dim);color:var(--red)}
-.toolbar{display:flex;gap:8px;padding:14px 28px 0;flex-wrap:wrap;align-items:center}
-input,select,textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 11px;font-size:13px;font-family:inherit;outline:none}
-input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+.toolbar{display:flex;gap:8px;padding:16px 28px 0;flex-wrap:wrap;align-items:center}
+input,select,textarea{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);padding:7px 11px;font-size:13px;font-family:inherit;outline:none;transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
+input:hover,select:hover,textarea:hover{border-color:var(--text3)}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim)}
 textarea{resize:vertical;min-height:60px}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
-.modal-overlay.open{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;overflow-x:hidden}
+.modal-overlay{position:fixed;inset:0;background:rgba(6,7,10,.65);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay.open{display:flex;animation:fade .18s var(--ease)}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;overflow-x:hidden;box-shadow:var(--shadow-md)}
 #modal-add .modal{max-width:840px;max-height:none;overflow-y:visible;overflow-x:hidden}
 #modal-add.modal-overlay{align-items:flex-start;overflow-y:auto;padding-top:40px}
 #modal-add .modal-body{grid-template-columns:repeat(3,minmax(0,1fr))}
-.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);font-size:15px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
-.modal-body{padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.modal-header{padding:17px 20px;border-bottom:1px solid var(--border);font-size:15px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.modal-body{padding:19px 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .form-group select,.form-group input,.form-group textarea{width:100%;min-width:0}
 .modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
 .form-group{display:flex;flex-direction:column;gap:5px}
 .form-full{grid-column:1/-1}
-.form-group label{font-size:11.5px;color:var(--text2)}
+.form-group label{font-size:11.5px;color:var(--text2);font-weight:500}
 .tag-preview{background:var(--bg3);border:1px dashed var(--border2);border-radius:var(--radius);padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--teal);letter-spacing:.5px}
-.doa-hint{font-size:11.5px;color:var(--text3);background:var(--bg3);border-radius:var(--radius);padding:8px 12px;line-height:1.6}
-.req-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg2);padding:14px 16px;margin:0 28px 10px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.doa-hint{font-size:11.5px;color:var(--text3);background:var(--bg3);border-radius:var(--radius);padding:9px 12px;line-height:1.6;border-left:2px solid var(--border2)}
+.req-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg2);padding:15px 17px;margin:0 28px 10px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;transition:border-color .15s var(--ease),transform .15s var(--ease);box-shadow:var(--shadow-sm)}
+.req-card:hover{border-color:var(--border2)}
 .req-main{flex:1;min-width:240px}
 .req-title{font-size:13.5px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .req-detail{font-size:12px;color:var(--text2);margin-top:5px;line-height:1.7}
 .req-actions{display:flex;gap:8px;align-items:center}
-.flow-rail{display:flex;align-items:center;gap:4px;margin-top:8px;font-size:10.5px;color:var(--text3)}
+.flow-rail{display:flex;align-items:center;gap:4px;margin-top:9px;font-size:10.5px;color:var(--text3)}
 .rail-step{padding:2px 8px;border-radius:10px;background:var(--bg3)}
-.rail-step.on{background:var(--amber-dim);color:var(--amber)}
+.rail-step.on{background:var(--amber-dim);color:var(--amber);font-weight:600}
 .rail-arrow{opacity:.4}
-.toast{position:fixed;bottom:22px;right:22px;padding:11px 18px;border-radius:10px;font-size:13px;z-index:200;display:none;max-width:340px}
-.toast.show{display:block;animation:fade .2s}
-.toast-save{background:var(--green-dim);color:var(--green);border:1px solid rgba(62,207,122,.3)}
-.toast-warn{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,166,35,.3)}
-.toast-err{background:var(--red-dim);color:var(--red);border:1px solid rgba(240,82,82,.3)}
-.pc-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);align-items:center}
+.toast{position:fixed;bottom:22px;right:22px;padding:12px 18px;border-radius:11px;font-size:13px;z-index:200;display:none;max-width:340px;box-shadow:var(--shadow-md);border-left:3px solid transparent}
+.toast.show{display:block;animation:toastin .25s var(--ease)}
+@keyframes toastin{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.toast-save{background:var(--green-dim);color:var(--green);border:1px solid rgba(62,207,122,.3);border-left:3px solid var(--green)}
+.toast-warn{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,166,35,.3);border-left:3px solid var(--amber)}
+.toast-err{background:var(--red-dim);color:var(--red);border:1px solid rgba(240,82,82,.3);border-left:3px solid var(--red)}
+.pc-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:center}
 .pc-row:hover{background:var(--bg3)}
 .progress-track{height:7px;background:var(--bg3);border-radius:4px;overflow:hidden;flex:1}
-.progress-fill{height:100%;background:var(--green);border-radius:4px;transition:width .3s}
+.progress-fill{height:100%;background:var(--green);border-radius:4px;transition:width .3s var(--ease)}
 .split-bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--bg3)}
 .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 28px 20px}
-@media(max-width:860px){.settings-grid{grid-template-columns:1fr}.modal-body{grid-template-columns:1fr}}
-.doa-row{display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;padding:8px 14px;align-items:center;border-bottom:1px solid var(--border);font-size:12.5px}
+.doa-row{display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;padding:9px 14px;align-items:center;border-bottom:1px solid var(--border);font-size:12.5px}
 .hint{font-size:11px;color:var(--text3);padding:10px 18px;line-height:1.7}
+@media(max-width:860px){.settings-grid{grid-template-columns:1fr}.modal-body{grid-template-columns:1fr}}
+.ac-panel{position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:500;max-height:280px;overflow-y:auto;display:none}
+.ac-panel.open{display:block}
+.ac-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;cursor:pointer;transition:background .1s var(--ease)}
+.ac-row:hover,.ac-row.hl{background:var(--bg3)}
+.ac-row-main{min-width:0;flex:1}
+.ac-row-title{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'IBM Plex Mono',monospace}
+.ac-row-sub{font-size:11.5px;color:var(--text3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-empty{padding:18px 14px;text-align:center;color:var(--text3);font-size:12.5px}
+.desc-clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;line-height:1.45;cursor:pointer}
+.desc-clamp:hover{color:var(--blue)}
+@media(max-width:900px){
+  .hamburger{display:flex}
+  .sidebar{position:fixed;left:-240px;top:0;bottom:0;box-shadow:var(--shadow-md)}
+  .sidebar.open{left:0}
+  .sidebar-scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40}
+  .sidebar-scrim.show{display:block}
+  .card{margin-left:16px;margin-right:16px}
+  .page-header,.toolbar,.metrics,.req-card{padding-left:16px;padding-right:16px}
+  .topbar{padding:12px 16px}
+}
 </style>
 </head>
 <body>
 <div class="shell">
-<aside class="sidebar">
-  <div class="logo"><div class="logo-title">Asset Platform</div><div class="logo-sub">V2 Prototype · Multi-entity · BNGS + BPNT</div></div>
+<div class="sidebar-scrim" id="sidebar-scrim" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 10h18M3 14h18M9 6v12M15 6v12"/></svg></div>
+    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.12.0 · BNGS + BPNT</div></div>
+  </div>
   <nav class="nav">
     <div class="nav-section">Overview</div>
     <button class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)">🏠 Dashboard</button>
     <div class="nav-section">Assets</div>
     <button class="nav-item" data-page="register" onclick="showPage('register',this)">📋 Asset register</button>
-    <button class="nav-item" data-page="overview" onclick="showPage('overview',this)">🔎 Asset overview</button>
     <button class="nav-item" data-page="txnpage" onclick="showPage('txnpage',this)">🔁 Asset transaction</button>
     <button class="nav-item" data-page="physical" onclick="showPage('physical',this)">🧾 Physical check</button>
     <div class="nav-section">Workflow · DOA</div>
@@ -189,16 +249,19 @@ textarea{resize:vertical;min-height:60px}
 </aside>
 <main class="main">
 <div class="topbar">
-  <div class="ent-switch">
-    <button class="ent-pill active" data-e="ALL" onclick="setEnt('ALL',this)">ทั้งหมด</button>
-    <button class="ent-pill" data-e="BNGS" onclick="setEnt('BNGS',this)">BNGS</button>
-    <button class="ent-pill" data-e="BPNT" onclick="setEnt('BPNT',this)">BPNT</button>
+  <div style="display:flex;align-items:center;gap:12px">
+    <button class="hamburger" onclick="openSidebar()" title="เมนู"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <div class="ent-switch">
+      <button class="ent-pill active" data-e="ALL" onclick="setEnt('ALL',this)">ทั้งหมด</button>
+      <button class="ent-pill" data-e="BNGS" onclick="setEnt('BNGS',this)">BNGS</button>
+      <button class="ent-pill" data-e="BPNT" onclick="setEnt('BPNT',this)">BPNT</button>
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     <div class="theme-toggle" onclick="toggleTheme()" title="สลับ Light / Dark mode">
       <span id="theme-sun">☀</span><span id="theme-moon">☾</span>
     </div>
-    <div class="topbar-user">Logged in: <strong>Jakkrapong_W</strong> · FA Custodian</div>
+    <div class="topbar-user"><div class="avatar">JW</div><span>Jakkrapong_W <span class="text-muted">· FA Custodian</span></span></div>
   </div>
 </div>
 
@@ -206,6 +269,7 @@ textarea{resize:vertical;min-height:60px}
   <div class="page-header"><div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-sub"></div></div>
   <div class="header-actions"><button class="btn btn-sm" id="sync-btn" onclick="syncAssetsFromSharePoint()">🔄 Sync from SharePoint</button><button class="btn btn-primary" onclick="openAddAsset()">🆕 Register asset</button></div></div>
   <div class="metrics" id="dash-metrics"></div>
+  <div class="card"><div class="card-header"><span class="card-title">By asset category</span><span class="card-sub" id="dash-class-sub"></span></div><div style="padding:16px 18px 18px" id="dash-class-chart"></div><div id="dash-cat-detail"></div></div>
   <div class="card"><div class="card-header"><span class="card-title">NBV by entity</span><span class="card-sub">มูลค่าสุทธิตามบัญชี ณ ปัจจุบัน</span></div><div style="padding:16px 18px" id="dash-entity-split"></div></div>
   <div class="card"><div class="card-header"><span class="card-title">Pending approvals</span><span class="card-sub">รอการอนุมัติตาม DOA</span></div><div class="table-wrap"><table><thead><tr><th>Request</th><th>Type</th><th>Asset</th><th>Entity</th><th class="text-right">NBV</th><th>DOA</th><th>Requested</th></tr></thead><tbody id="dash-pending"></tbody></table></div></div>
   <div class="card"><div class="card-header"><span class="card-title">Recent activity</span><span class="card-sub">audit trail ล่าสุด</span></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Asset</th><th>Action</th><th>Detail</th><th>By</th></tr></thead><tbody id="dash-log"></tbody></table></div></div>
@@ -215,76 +279,45 @@ textarea{resize:vertical;min-height:60px}
   <div class="page-header"><div><div class="page-title">Asset register</div><div class="page-sub" id="reg-sub"></div></div>
   <div class="header-actions"><button class="btn btn-sm" onclick="clearRegisterFilters()">🧹 Clear filter</button><button class="btn btn-sm" onclick="openFaNoBulk()">📋 Update FA No. (Bulk)</button><button class="btn btn-green" onclick="exportAssetsCSV()">📤 Export CSV</button><button class="btn btn-primary" onclick="openAddAsset()">🆕 Register asset</button></div></div>
   <div class="toolbar">
+    <select id="reg-class" onchange="renderRegister()"><option value="">ทุก class</option></select>
     <select id="reg-status" onchange="renderRegister()"><option value="">All status</option><option>Active</option><option>In Stock</option><option value="Pending">Pending (all)</option><option>Disposed</option><option>Rejected</option></select>
     <select id="reg-owner" onchange="renderRegister()"><option value="">All owners</option></select>
+    <select id="reg-site" onchange="renderRegister()"><option value="">ทุก site</option></select>
+    <select id="reg-eol" onchange="renderRegister()"><option value="">ทุกอายุการใช้งาน</option><option value="eol">End of life เท่านั้น</option></select>
   </div>
-  <div class="card" style="margin-top:14px"><div class="table-wrap"><table><thead><tr>
+  <div class="card-sub" id="reg-count" style="padding:8px 28px 0"></div>
+  <div class="card" style="margin-top:10px"><div class="table-wrap"><table><thead><tr>
     <th class="th-sort" onclick="toggleSort(regSort,'tag',renderRegister)">Asset tag<span id="reg-sort-tag"></span></th>
     <th class="th-sort" onclick="toggleSort(regSort,'faNo',renderRegister)">FA No. (Oracle)<span id="reg-sort-faNo"></span></th>
-    <th class="th-sort" onclick="toggleSort(regSort,'desc',renderRegister)">Description<span id="reg-sort-desc"></span></th>
+    <th class="th-sort" style="min-width:400px" onclick="toggleSort(regSort,'desc',renderRegister)">Description<span id="reg-sort-desc"></span></th>
+    <th class="th-sort" onclick="toggleSort(regSort,'class',renderRegister)">Class<span id="reg-sort-class"></span></th>
     <th class="th-sort" onclick="toggleSort(regSort,'entity',renderRegister)">Entity<span id="reg-sort-entity"></span></th>
     <th class="th-sort" onclick="toggleSort(regSort,'owner',renderRegister)">Owner<span id="reg-sort-owner"></span></th>
-    <th>CC · Main-Sub</th>
+    <th class="th-sort" onclick="toggleSort(regSort,'cc',renderRegister)">Cost center<span id="reg-sort-cc"></span></th>
+    <th>Main-Sub</th>
     <th class="th-sort" onclick="toggleSort(regSort,'site',renderRegister)">Site<span id="reg-sort-site"></span></th>
     <th class="text-right th-sort" onclick="toggleSort(regSort,'cost',renderRegister)">Cost<span id="reg-sort-cost"></span></th>
     <th class="text-right th-sort" onclick="toggleSort(regSort,'nbv',renderRegister)">NBV<span id="reg-sort-nbv"></span></th>
     <th class="th-sort" onclick="toggleSort(regSort,'status',renderRegister)">Status<span id="reg-sort-status"></span></th>
-    <th></th>
-  </tr>
-  <tr>
-    <th class="th-filter"><input class="col-filter-input" id="reg-f-tag" oninput="renderRegister()" placeholder="🔍 tag"></th>
-    <th class="th-filter"><input class="col-filter-input" id="reg-f-faNo" oninput="renderRegister()" placeholder="🔍 FA no."></th>
-    <th class="th-filter"><input class="col-filter-input" id="reg-f-desc" oninput="renderRegister()" placeholder="🔍 description"></th>
-    <th></th>
-    <th class="th-filter"><input class="col-filter-input" id="reg-f-owner" oninput="renderRegister()" placeholder="🔍 owner"></th>
-    <th class="th-filter"><input class="col-filter-input" id="reg-f-cc" oninput="renderRegister()" placeholder="🔍 CC"></th>
-    <th class="th-filter"><input class="col-filter-input" id="reg-f-site" oninput="renderRegister()" placeholder="🔍 site"></th>
-    <th></th><th></th><th></th><th></th>
-  </tr></thead><tbody id="reg-rows"></tbody></table></div></div>
-</div>
-
-<div id="overview" class="page">
-  <div class="page-header"><div><div class="page-title">Asset overview</div><div class="page-sub">มุมมองรวมของทรัพย์สินทั้งหมด — ดูและกรองข้อมูลแบบละเอียด (read-only) · พิมพ์ค้นหาได้ที่หัวตารางแต่ละคอลัมน์</div></div>
-  <div class="header-actions"><button class="btn btn-sm" onclick="clearOverviewFilters()">🧹 Clear filter</button><button class="btn btn-green" onclick="exportOverviewCSV()">📤 Export CSV</button></div></div>
-  <div class="toolbar">
-    <select id="ov-class" onchange="renderOverview()"><option value="">ทุก class</option></select>
-    <select id="ov-status" onchange="renderOverview()"><option value="">ทุกสถานะ</option><option>Active</option><option>In Stock</option><option value="Pending">Pending (all)</option><option>Disposed</option><option>Rejected</option></select>
-    <select id="ov-owner" onchange="renderOverview()"><option value="">ทุก owner</option></select>
-    <select id="ov-site" onchange="renderOverview()"><option value="">ทุก site</option></select>
-    <select id="ov-eol" onchange="renderOverview()"><option value="">ทุกอายุการใช้งาน</option><option value="eol">End of life เท่านั้น</option></select>
-  </div>
-  <div class="card-sub" id="ov-count" style="padding:8px 28px 0"></div>
-  <div class="card" style="margin-top:10px"><div class="table-wrap"><table><thead><tr>
-    <th class="th-sort" onclick="toggleSort(ovSort,'tag',renderOverview)">Tag<span id="ov-sort-tag"></span></th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'faNo',renderOverview)">FA No.<span id="ov-sort-faNo"></span></th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'desc',renderOverview)">Description<span id="ov-sort-desc"></span></th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'class',renderOverview)">Class<span id="ov-sort-class"></span></th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'entity',renderOverview)">Entity<span id="ov-sort-entity"></span></th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'owner',renderOverview)">Owner<span id="ov-sort-owner"></span></th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'cc',renderOverview)">Cost center<span id="ov-sort-cc"></span></th>
-    <th>Main-Sub</th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'site',renderOverview)">Site<span id="ov-sort-site"></span></th>
-    <th class="text-right th-sort" onclick="toggleSort(ovSort,'cost',renderOverview)">Cost<span id="ov-sort-cost"></span></th>
-    <th class="text-right th-sort" onclick="toggleSort(ovSort,'nbv',renderOverview)">NBV<span id="ov-sort-nbv"></span></th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'status',renderOverview)">Status<span id="ov-sort-status"></span></th>
     <th>Serial</th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'date',renderOverview)">In-service<span id="ov-sort-date"></span></th>
-    <th class="text-right th-sort" onclick="toggleSort(ovSort,'life',renderOverview)">Life (yr)<span id="ov-sort-life"></span></th>
-    <th class="th-sort" onclick="toggleSort(ovSort,'eol',renderOverview)">End of Life Date<span id="ov-sort-eol"></span></th>
+    <th class="th-sort" onclick="toggleSort(regSort,'date',renderRegister)">In-service<span id="reg-sort-date"></span></th>
+    <th class="text-right th-sort" onclick="toggleSort(regSort,'life',renderRegister)">Life (yr)<span id="reg-sort-life"></span></th>
+    <th class="th-sort" onclick="toggleSort(regSort,'eol',renderRegister)">End of Life Date<span id="reg-sort-eol"></span></th>
+    <th></th>
   </tr>
   <tr>
-    <th class="th-filter"><input class="col-filter-input" id="ov-f-tag" oninput="renderOverview()" placeholder="🔍 tag"></th>
-    <th class="th-filter"><input class="col-filter-input" id="ov-f-faNo" oninput="renderOverview()" placeholder="🔍 FA no."></th>
-    <th class="th-filter"><input class="col-filter-input" id="ov-f-desc" oninput="renderOverview()" placeholder="🔍 description"></th>
+    <th class="th-filter"><input class="col-filter-input" id="reg-f-tag" data-ac="tag" oninput="renderRegister()" placeholder="🔍 tag" autocomplete="off"></th>
+    <th class="th-filter"><input class="col-filter-input" id="reg-f-faNo" data-ac="faNo" oninput="renderRegister()" placeholder="🔍 FA no." autocomplete="off"></th>
+    <th class="th-filter"><input class="col-filter-input" id="reg-f-desc" data-ac="desc" oninput="renderRegister()" placeholder="🔍 description" autocomplete="off"></th>
     <th></th><th></th>
-    <th class="th-filter"><input class="col-filter-input" id="ov-f-owner" oninput="renderOverview()" placeholder="🔍 owner"></th>
-    <th class="th-filter"><input class="col-filter-input" id="ov-f-cc" oninput="renderOverview()" placeholder="🔍 CC"></th>
-    <th></th>
-    <th class="th-filter"><input class="col-filter-input" id="ov-f-site" oninput="renderOverview()" placeholder="🔍 site"></th>
+    <th class="th-filter"><input class="col-filter-input" id="reg-f-owner" data-ac="owner" oninput="renderRegister()" placeholder="🔍 owner" autocomplete="off"></th>
+    <th class="th-filter"><input class="col-filter-input" id="reg-f-cc" data-ac="cc" oninput="renderRegister()" placeholder="🔍 CC" autocomplete="off"></th>
+    <th class="th-filter"><input class="col-filter-input" id="reg-f-mainsub" data-ac="main" oninput="renderRegister()" placeholder="🔍 main-sub" autocomplete="off"></th>
+    <th class="th-filter"><input class="col-filter-input" id="reg-f-site" data-ac="site" oninput="renderRegister()" placeholder="🔍 site" autocomplete="off"></th>
     <th></th><th></th><th></th>
-    <th class="th-filter"><input class="col-filter-input" id="ov-f-serial" oninput="renderOverview()" placeholder="🔍 serial"></th>
-    <th></th><th></th><th></th>
-  </tr></thead><tbody id="ov-rows"></tbody></table></div></div>
+    <th class="th-filter"><input class="col-filter-input" id="reg-f-serial" data-ac="serial" oninput="renderRegister()" placeholder="🔍 serial" autocomplete="off"></th>
+    <th></th><th></th><th></th><th></th>
+  </tr></thead><tbody id="reg-rows"></tbody></table></div><div class="scroll-hint" id="reg-scroll-hint"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div></div>
 </div>
 
 <div id="txnpage" class="page">
@@ -310,7 +343,7 @@ textarea{resize:vertical;min-height:60px}
             <th style="width:30px"></th>
             <th class="th-sort" onclick="toggleSort(txpSort,'tag',renderTxnAssetOptions)">Tag<span id="txp-sort-tag"></span></th>
             <th class="th-sort" onclick="toggleSort(txpSort,'faNo',renderTxnAssetOptions)">FA No.<span id="txp-sort-faNo"></span></th>
-            <th class="th-sort" onclick="toggleSort(txpSort,'desc',renderTxnAssetOptions)">Description<span id="txp-sort-desc"></span></th>
+            <th class="th-sort" style="min-width:340px" onclick="toggleSort(txpSort,'desc',renderTxnAssetOptions)">Description<span id="txp-sort-desc"></span></th>
             <th class="th-sort" onclick="toggleSort(txpSort,'class',renderTxnAssetOptions)">Class<span id="txp-sort-class"></span></th>
             <th class="th-sort" onclick="toggleSort(txpSort,'entity',renderTxnAssetOptions)">Entity<span id="txp-sort-entity"></span></th>
             <th class="th-sort" onclick="toggleSort(txpSort,'owner',renderTxnAssetOptions)">Owner<span id="txp-sort-owner"></span></th>
@@ -327,20 +360,20 @@ textarea{resize:vertical;min-height:60px}
           </tr>
           <tr>
             <th></th>
-            <th class="th-filter"><input class="col-filter-input" id="txp-f-tag" oninput="renderTxnAssetOptions()" placeholder="🔍 tag"></th>
-            <th class="th-filter"><input class="col-filter-input" id="txp-f-faNo" oninput="renderTxnAssetOptions()" placeholder="🔍 FA no."></th>
-            <th class="th-filter"><input class="col-filter-input" id="txp-f-desc" oninput="renderTxnAssetOptions()" placeholder="🔍 description"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-tag" data-ac="txptag" oninput="renderTxnAssetOptions()" placeholder="🔍 tag" autocomplete="off"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-faNo" data-ac="faNo" oninput="renderTxnAssetOptions()" placeholder="🔍 FA no." autocomplete="off"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-desc" data-ac="desc" oninput="renderTxnAssetOptions()" placeholder="🔍 description" autocomplete="off"></th>
             <th></th><th></th>
-            <th class="th-filter"><input class="col-filter-input" id="txp-f-owner" oninput="renderTxnAssetOptions()" placeholder="🔍 owner"></th>
-            <th class="th-filter"><input class="col-filter-input" id="txp-f-cc" oninput="renderTxnAssetOptions()" placeholder="🔍 CC"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-owner" data-ac="owner" oninput="renderTxnAssetOptions()" placeholder="🔍 owner" autocomplete="off"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-cc" data-ac="cc" oninput="renderTxnAssetOptions()" placeholder="🔍 CC" autocomplete="off"></th>
             <th></th>
-            <th class="th-filter"><input class="col-filter-input" id="txp-f-site" oninput="renderTxnAssetOptions()" placeholder="🔍 site"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-site" data-ac="site" oninput="renderTxnAssetOptions()" placeholder="🔍 site" autocomplete="off"></th>
             <th></th><th></th><th></th>
-            <th class="th-filter"><input class="col-filter-input" id="txp-f-serial" oninput="renderTxnAssetOptions()" placeholder="🔍 serial"></th>
+            <th class="th-filter"><input class="col-filter-input" id="txp-f-serial" data-ac="serial" oninput="renderTxnAssetOptions()" placeholder="🔍 serial" autocomplete="off"></th>
             <th></th><th></th><th></th>
           </tr>
         </thead><tbody id="txp-rows"></tbody></table>
-      </div>
+      </div><div class="scroll-hint" id="txp-scroll-hint"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
     </div>
   </div>
   <div class="card" id="txp-card" style="display:none">
@@ -354,6 +387,7 @@ textarea{resize:vertical;min-height:60px}
 <div id="physical" class="page">
   <div class="page-header"><div><div class="page-title">Physical check</div><div class="page-sub" id="pc-sub">ตรวจนับทรัพย์สินประจำรอบ</div></div>
   <div class="header-actions"><button class="btn btn-primary" id="pc-start-btn" onclick="startCheckRound()">+ Start check round</button><button class="btn btn-amber" id="pc-close-btn" style="display:none" onclick="closeCheckRound()">Close round</button></div></div>
+  <div class="toolbar" id="pc-toolbar"><input id="pc-search" data-ac="pc" placeholder="ค้นหา tag / description / owner..." style="width:260px" oninput="renderPhysical()" autocomplete="off"></div>
   <div class="metrics" id="pc-metrics"></div>
   <div class="card" id="pc-list-card" style="display:none"><div class="card-header"><span class="card-title" id="pc-round-title"></span><div style="display:flex;align-items:center;gap:10px;min-width:220px"><div class="progress-track"><div class="progress-fill" id="pc-progress"></div></div><span class="card-sub" id="pc-progress-txt"></span></div></div><div id="pc-rows"></div></div>
   <div class="card"><div class="card-header"><span class="card-title">Check history</span></div><div class="table-wrap"><table><thead><tr><th>Round</th><th>Period</th><th>Scope</th><th class="text-right">Assets</th><th class="text-right">Found</th><th class="text-right">Missing</th><th>Status</th></tr></thead><tbody id="pc-history"></tbody></table></div></div>
@@ -362,6 +396,7 @@ textarea{resize:vertical;min-height:60px}
 <div id="approvals" class="page">
   <div class="page-header"><div><div class="page-title">Approvals</div><div class="page-sub">คำขอที่รอการอนุมัติตาม Delegation of Authority</div></div>
   <div class="header-actions"><button class="btn btn-sm" id="sync-req-btn" onclick="syncRequestsFromSharePoint()">🔄 Sync Requests</button></div></div>
+  <div class="toolbar"><input id="appr-search" data-ac="appr" placeholder="ค้นหา request / tag / description..." style="width:260px" oninput="renderApprovals()" autocomplete="off"></div>
   <div class="hint" id="doa-summary"></div>
   <div id="appr-list" style="margin-top:6px"></div>
 </div>
@@ -369,7 +404,7 @@ textarea{resize:vertical;min-height:60px}
 <div id="requests" class="page">
   <div class="page-header"><div><div class="page-title">Requests log</div><div class="page-sub">ประวัติคำขอทั้งหมดทุกสถานะ</div></div>
   <div class="header-actions"><button class="btn btn-sm" onclick="clearRequestsFilters()">🧹 Clear filter</button><button class="btn btn-sm" onclick="syncRequestsFromSharePoint()">🔄 Sync Requests</button></div></div>
-  <div class="toolbar"><select id="rq-type" onchange="renderRequests()"><option value="">All types</option><option>Register</option><option>Transfer</option><option>Return</option><option>Disposal</option></select>
+  <div class="toolbar"><input id="rq-search" data-ac="rq" placeholder="ค้นหา request / tag / approver..." style="width:230px" oninput="renderRequests()" autocomplete="off"><select id="rq-type" onchange="renderRequests()"><option value="">All types</option><option>Register</option><option>Transfer</option><option>Return</option><option>Disposal</option></select>
   <select id="rq-status" onchange="renderRequests()"><option value="">All status</option><option>Pending</option><option>Approved</option><option>Rejected</option></select></div>
   <div class="card" style="margin-top:14px"><div class="table-wrap"><table><thead><tr>
     <th class="th-sort" onclick="toggleSort(rqSort,'request',renderRequests)">Request<span id="rq-sort-request"></span></th>
@@ -388,11 +423,10 @@ textarea{resize:vertical;min-height:60px}
   <div class="page-header"><div><div class="page-title">Monthly report</div><div class="page-sub">สรุปจำนวน สถานะ และ NBV รายเดือน</div></div>
   <div class="header-actions"><input type="month" id="rp-month" onchange="renderReport()"><button class="btn btn-green" onclick="exportReportCSV()">📤 Export CSV</button></div></div>
   <div class="metrics" id="rp-metrics"></div>
-  <div class="card"><div class="card-header"><span class="card-title">By asset class</span><span class="card-sub" id="rp-class-sub"></span></div><div class="table-wrap"><table><thead><tr><th>Prefix</th><th>Class</th><th class="text-right">Qty</th><th class="text-right">Cost</th><th class="text-right">Accum. depr</th><th class="text-right">NBV</th></tr></thead><tbody id="rp-class-rows"></tbody></table></div></div>
-  <div class="card"><div class="card-header"><span class="card-title">Disposal in month</span><span class="card-sub">Sale / Donation / ScrapRecycle / Loss</span></div><div class="table-wrap"><table><thead><tr><th>Type</th><th class="text-right">Qty</th><th class="text-right">NBV written off</th></tr></thead><tbody id="rp-disp-rows"></tbody></table></div></div>
   <div class="card"><div class="card-header"><span class="card-title">Transaction summary</span><span class="card-sub">คำขอที่ Approved ในเดือนนี้ (Register / Transfer / Return / Disposal)</span></div>
   <div class="metrics" id="rp-txn-metrics" style="padding:14px 18px 0"></div>
   <div class="table-wrap"><table><thead><tr><th>Request</th><th>Type</th><th>Asset</th><th>Entity</th><th>รายละเอียด</th><th>Approved by</th><th>วันที่</th></tr></thead><tbody id="rp-txn-rows"></tbody></table></div></div>
+  <div class="card"><div class="card-header"><span class="card-title">Disposal in month</span><span class="card-sub">Sale / Donation / ScrapRecycle / Loss</span></div><div class="table-wrap"><table><thead><tr><th>Type</th><th class="text-right">Qty</th><th class="text-right">NBV written off</th></tr></thead><tbody id="rp-disp-rows"></tbody></table></div></div>
 </div>
 
 <div id="settings" class="page">
@@ -418,38 +452,32 @@ textarea{resize:vertical;min-height:60px}
     </div>
     <div class="hint" style="border-top:1px solid var(--border)">⚠ URL เหล่านี้มี security token ฝังอยู่ในตัวแล้ว อย่า share หรือ commit ลง GitHub public repo — เก็บใน localStorage เท่านั้น</div>
   </div>
-  <div class="settings-grid" style="margin-top:16px">
-    <div class="card" style="margin:0">
-      <div class="card-header"><span class="card-title">DOA matrix</span><span class="card-sub">อนุมัติตามมูลค่า NBV · LOSS +1 level</span></div>
-      <div class="doa-row" style="color:var(--text3);font-size:11px"><span>Level</span><span>NBV ceiling (THB)</span><span>Role</span><span>Approver</span></div>
-      <div id="doa-rows"></div>
-      <div style="padding:12px 14px"><button class="btn btn-sm btn-primary" onclick="saveDOA()">Save DOA</button></div>
-    </div>
-    <div class="card" style="margin:0">
-      <div class="card-header"><span class="card-title">Entity config</span></div>
-      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
-        <div class="form-group"><label>BNGS · Oracle company code</label><input id="set-bngs-code" class="mono"></div>
-        <div class="form-group"><label>BPNT · Oracle company code (รอ confirm จากทีมบัญชี)</label><input id="set-bpnt-code" class="mono" placeholder="TBD"></div>
-        <button class="btn btn-sm btn-primary" style="align-self:flex-start" onclick="saveEntityCfg()">Save config</button>
-      </div>
-      <div class="card-header" style="border-top:1px solid var(--border)"><span class="card-title">Employees</span><span class="card-sub" id="emp-sub"></span></div>
-      <div class="table-wrap" style="max-height:220px;overflow-y:auto"><table><thead><tr><th>Name</th><th>Dept</th><th>Cost center</th></tr></thead><tbody id="emp-rows"></tbody></table></div>
-      <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap">
-        <input id="emp-name" placeholder="ชื่อ" style="width:130px"><input id="emp-dept" placeholder="แผนก" style="width:120px"><input id="emp-cc" placeholder="CC" style="width:80px" class="mono">
-        <button class="btn btn-sm" onclick="addEmp()">+ Add</button>
-      </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-header"><span class="card-title">Employees</span><span class="card-sub" id="emp-sub"></span></div>
+    <div class="table-wrap" style="max-height:220px;overflow-y:auto"><table><thead><tr><th>Name</th><th>Dept</th><th>Cost center</th></tr></thead><tbody id="emp-rows"></tbody></table></div>
+    <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap">
+      <input id="emp-name" placeholder="ชื่อ" style="width:130px"><input id="emp-dept" placeholder="แผนก" style="width:120px"><input id="emp-cc" placeholder="CC" style="width:80px" class="mono">
+      <button class="btn btn-sm" onclick="addEmp()">+ Add</button>
     </div>
   </div>
   <div class="card"><div class="card-header"><span class="card-title">Main / Sub account master</span><span class="card-sub" id="acc-sub"></span></div>
-  <div class="table-wrap" style="max-height:260px;overflow-y:auto"><table><thead><tr><th>Code</th><th>Description</th><th>Type</th></tr></thead><tbody id="acc-rows"></tbody></table></div></div>
+  <div class="toolbar" style="padding:12px 18px 0"><input id="acc-search" data-ac="accall" placeholder="🔍 ค้นหา code / description" style="width:260px" oninput="renderSettings()" autocomplete="off"></div>
+  <div class="table-wrap" style="max-height:420px;overflow-y:auto;margin-top:10px"><table><thead><tr><th>Code</th><th>Description</th><th>Type</th></tr></thead><tbody id="acc-rows"></tbody></table></div>
+  <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <select id="ma-type" style="width:90px"><option value="main">Main</option><option value="sub">Sub</option></select>
+    <input id="ma-code" placeholder="รหัส account" style="width:130px" class="mono"><input id="ma-name" placeholder="ชื่อ account" style="width:240px">
+    <button class="btn btn-sm" onclick="addMainSubAccount()">+ Add account</button>
+  </div></div>
   <div class="card"><div class="card-header"><span class="card-title">Cost center master</span><span class="card-sub" id="cc-sub"></span></div>
-  <div class="table-wrap"><table><thead><tr><th>Cost center</th><th>Name</th></tr></thead><tbody id="cc-rows"></tbody></table></div>
+  <div class="toolbar" style="padding:12px 18px 0"><input id="cc-search" data-ac="cc" placeholder="🔍 ค้นหา รหัส / ชื่อ CC" style="width:260px" oninput="renderSettings()" autocomplete="off"></div>
+  <div class="table-wrap" style="max-height:420px;overflow-y:auto;margin-top:10px"><table><thead><tr><th>Cost center</th><th>Name</th></tr></thead><tbody id="cc-rows"></tbody></table></div>
   <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap">
     <input id="cc-code" placeholder="รหัส CC" style="width:100px" class="mono"><input id="cc-name" placeholder="ชื่อแผนก/หน่วยงาน" style="width:220px">
     <button class="btn btn-sm" onclick="addCC()">+ Add cost center</button>
   </div></div>
   <div class="card"><div class="card-header"><span class="card-title">Asset prefix catalog</span><span class="card-sub" id="pfx-sub"></span></div>
-  <div class="table-wrap"><table><thead><tr><th>Prefix</th><th>Classification</th><th>Oracle category</th><th class="text-right">Next running no.</th></tr></thead><tbody id="pfx-rows"></tbody></table></div>
+  <div class="toolbar" style="padding:12px 18px 0"><input id="pfx-search" data-ac="pfxcat" placeholder="🔍 ค้นหา prefix / classification" style="width:260px" oninput="renderSettings()" autocomplete="off"></div>
+  <div class="table-wrap" style="max-height:420px;overflow-y:auto;margin-top:10px"><table><thead><tr><th>Prefix</th><th>Classification</th><th>Oracle category</th><th class="text-right">Next running no.</th></tr></thead><tbody id="pfx-rows"></tbody></table></div>
   <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap">
     <input id="pfx-code" placeholder="PREFIX" style="width:90px" class="mono" maxlength="4"><input id="pfx-name" placeholder="Classification name" style="width:220px"><input id="pfx-cat" placeholder="Oracle cat (e.g. F0007-09)" style="width:170px" class="mono">
     <button class="btn btn-sm" onclick="addPrefix()">+ Add prefix</button>
@@ -469,9 +497,9 @@ textarea{resize:vertical;min-height:60px}
     <div class="form-group form-full" style="margin-top:-6px"><span class="card-sub" id="a-prefix-hint" style="font-size:11px"></span></div>
     <div class="form-group form-full"><label>Asset tag ที่จะได้รับ (auto-generate)</label><div class="tag-preview" id="a-tag-preview">—</div></div>
     <div class="form-group"><label>Owner *</label><select id="a-owner" onchange="syncOwnerCC('a')"></select></div>
-    <div class="form-group"><label>Cost center</label><input id="a-cc" list="dl-cc" placeholder="เลือกจาก master หรือพิมพ์เอง"></div>
-    <div class="form-group"><label>Main account</label><input id="a-mainacc" list="dl-main" placeholder="เลือกจาก master หรือพิมพ์เอง"></div>
-    <div class="form-group"><label>Sub account</label><input id="a-subacc" list="dl-sub" placeholder="เลือกจาก master หรือพิมพ์เอง"></div>
+    <div class="form-group"><label>Cost center</label><input id="a-cc" data-ac="cc" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
+    <div class="form-group"><label>Main account</label><input id="a-mainacc" data-ac="main" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
+    <div class="form-group"><label>Sub account</label><input id="a-subacc" data-ac="sub" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
     <div class="form-group"><label>Site</label><select id="a-site"></select></div>
     <div class="form-group"><label>In-service date *</label><input type="date" id="a-date"></div>
     <div class="form-group"><label>Cost (THB) *</label><input type="number" id="a-cost" oninput="refreshAddDOA()"></div>
@@ -485,6 +513,11 @@ textarea{resize:vertical;min-height:60px}
   <div class="modal-header" id="act-title">Action<button class="btn btn-sm" onclick="closeModals()">✕</button></div>
   <div class="modal-body" id="act-body"></div>
   <div class="modal-footer"><button class="btn" onclick="closeModals()">✕ Cancel</button><button class="btn btn-primary" id="act-submit">📨 Submit for approval</button></div>
+</div></div>
+
+<div class="modal-overlay" id="modal-desc"><div class="modal" style="max-width:480px">
+  <div class="modal-header"><span id="desc-modal-title">Description</span><button class="btn btn-sm" onclick="closeModals()">✕</button></div>
+  <div class="modal-body" style="display:block;font-size:13.5px;line-height:1.7" id="desc-modal-body"></div>
 </div></div>
 
 <div class="modal-overlay" id="modal-editlife"><div class="modal">
@@ -2923,15 +2956,15 @@ const DOA_MATRIX={
 let S=null, ENT='ALL', curCheck=null;
 /* ═══════════ GENERIC SORTABLE TABLE HEADERS ═══════════
    ใช้ร่วมกันได้ทุกตาราง — เก็บ state แยกต่อตาราง {key, dir} แล้วเรียก sortRows() ก่อน render */
-let ovSort={key:null,dir:1}, regSort={key:null,dir:1}, rqSort={key:null,dir:1}, txpSort={key:null,dir:1};
+let regSort={key:null,dir:1}, rqSort={key:null,dir:1}, txpSort={key:null,dir:1};
 function toggleSort(state,key,renderFn){if(state.key===key)state.dir*=-1;else{state.key=key;state.dir=1;}renderFn();}
 function sortArrow(state,key){return state.key===key?'<span style="color:var(--blue)">'+(state.dir===1?' ▲':' ▼')+'</span>':'';}
+function paintSortHeaders(prefix,state,keys){keys.forEach(k=>{const span=document.getElementById(prefix+'-sort-'+k);if(!span)return;
+  span.innerHTML=sortArrow(state,k);const th=span.closest('th');if(th)th.classList.toggle('th-sort-active',state.key===k);});}
 function sortRows(list,state,valueFn){if(!state.key)return list;
   return [...list].sort((a,b)=>{const va=valueFn(a,state.key),vb=valueFn(b,state.key);
     if(va<vb)return -1*state.dir;if(va>vb)return 1*state.dir;return 0;});}
-function ovColValue(a,key){if(key==='nbv')return calcNBV(a).nbv;if(key==='class')return a.prefix||'';if(key==='eol')return eolDate(a).getTime();
-  const v=a[key];return typeof v==='number'?v:String(v||'').toLowerCase();}
-function regColValue(a,key){if(key==='nbv')return calcNBV(a).nbv;
+function regColValue(a,key){if(key==='nbv')return calcNBV(a).nbv;if(key==='class')return a.prefix||'';if(key==='eol')return eolDate(a).getTime();
   const v=a[key];return typeof v==='number'?v:String(v||'').toLowerCase();}
 function rqColValue(r,key){if(key==='request')return r.id||'';
   const v=r[key];return typeof v==='number'?v:String(v||'').toLowerCase();}
@@ -3982,7 +4015,7 @@ function seedState(){
 }
 function save(){S.savedAt=Date.now();const c=JSON.parse(JSON.stringify(S));c.doa.forEach(d=>{if(d.max===Infinity)d.max='INF'});localStorage.setItem(LS,JSON.stringify(c));
   document.getElementById('save-text').textContent='Saved '+new Date().toLocaleTimeString('th-TH');}
-function load(){try{const r=localStorage.getItem(LS);if(r){S=JSON.parse(r);S.doa.forEach(d=>{if(d.max==='INF'||d.max==null)d.max=Infinity});return true}}catch(e){}return false}
+function load(){try{const r=localStorage.getItem(LS);if(r){S=JSON.parse(r);if(S.doa)S.doa.forEach(d=>{if(d.max==='INF'||d.max==null)d.max=Infinity});return true}}catch(e){}return false}
 /* ═══════════ SYNC ASSETS FROM SHAREPOINT (SharePoint = source of truth) ═══════════
    ดึง asset ทั้งหมดจาก 01_FA_Assets ผ่าน Flow "FA - Get Assets Sync" แล้ว "แทนที่" S.assets ทั้งก้อน
    (ไม่ merge เพราะ SharePoint คือความจริงเดียวตามหลัก audit ที่วางไว้) */
@@ -4232,8 +4265,7 @@ function getOwnerSupervisor(ownerKey){
 function approverForRequest(type,ownerKey,nbv,dispType){
   // Register + Transfer + Return → supervisor of asset owner (logic เดิม ไม่เปลี่ยน)
   const sup=getOwnerSupervisor(ownerKey);
-  const doaL1=S.doa[0];
-  return {level:'SUP',name:sup?sup.name:doaL1.name,role:sup?sup.position||'Supervisor':doaL1.role,isSupRoute:true};}
+  return {level:'SUP',name:sup?sup.name:CENTRAL_OWNER,role:sup?sup.position||'Supervisor':'FA Custodian (ไม่พบหัวหน้าใน master — ติดต่อ FA Custodian)',isSupRoute:true};}
 function lvlLabel(r){return r.level;}
 function nextTag(prefix){return prefix+'-'+String(S.counters[prefix]||10001)}
 function classOf(prefix){const p=S.prefixes.find(x=>x.prefix===prefix);return p?p.name:prefix}
@@ -4258,8 +4290,11 @@ function toggleTheme(){const next=currentTheme()==='light'?'dark':'light';if(nex
   try{localStorage.setItem('asset_platform_theme',next);}catch(e){}syncThemeBtn();toast('สลับเป็น '+(next==='light'?'Light':'Dark')+' mode');}
 
 /* ═══════════ NAV & ENTITY ═══════════ */
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebar-scrim').classList.add('show');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-scrim').classList.remove('show');}
 function showPage(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));if(el)el.classList.add('active');renderAll();}
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));if(el)el.classList.add('active');renderAll();closeSidebar();if(typeof acClose==='function')acClose();
+  document.querySelector('.main').scrollTo({top:0,behavior:'smooth'});}
 function setEnt(e,el){ENT=e;document.querySelectorAll('.ent-pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');renderAll();}
 
 /* ═══════════ REQUEST ENGINE ═══════════ */
@@ -4384,9 +4419,9 @@ function actionFieldsHTML(type,tag,idp){const a=S.assets.find(x=>x.tag===tag);co
   let html='<div class="form-full doa-hint">'+a.desc+' · '+entBadge(a.entity)+' · Owner ปัจจุบัน: <strong>'+a.owner+'</strong> · CC '+a.cc+' · NBV ฿'+fmt(nbv)+'</div>';
   if(type==='Transfer'){
     html+='<div class="form-group"><label>โอนให้ Owner ใหม่ *</label><select id="'+idp+'t-owner" onchange="syncOwnerCC(\''+idp+'t\');actDOA(\''+tag+'\',\'Transfer\',\''+idp+'\')">'+S.employees.filter(e=>e.name!==a.owner).map(e=>'<option>'+e.name+'</option>').join('')+'</select></div>'
-    +'<div class="form-group"><label>Cost center ใหม่</label><input list="dl-cc" id="'+idp+'t-cc" value="'+a.cc+'" placeholder="เลือกหรือพิมพ์เอง"></div>'
-    +'<div class="form-group"><label>Main account ใหม่</label><input list="dl-main" id="'+idp+'t-main" value="'+a.mainAccount+'" placeholder="เลือกหรือพิมพ์เอง"></div>'
-    +'<div class="form-group"><label>Sub account ใหม่</label><input list="dl-sub" id="'+idp+'t-sub" value="'+(a.subAccount||'')+'" placeholder="เลือกหรือพิมพ์เอง"></div>'
+    +'<div class="form-group"><label>Cost center ใหม่</label><input data-ac="cc" id="'+idp+'t-cc" value="'+a.cc+'" placeholder="เลือกหรือพิมพ์เอง" autocomplete="off"></div>'
+    +'<div class="form-group"><label>Main account ใหม่</label><input data-ac="main" id="'+idp+'t-main" value="'+a.mainAccount+'" placeholder="เลือกหรือพิมพ์เอง" autocomplete="off"></div>'
+    +'<div class="form-group"><label>Sub account ใหม่</label><input data-ac="sub" id="'+idp+'t-sub" value="'+(a.subAccount||'')+'" placeholder="เลือกหรือพิมพ์เอง" autocomplete="off"></div>'
     +'<div class="form-group"><label>Site ใหม่</label><select id="'+idp+'t-site">'+SITES.map(s=>'<option'+(s===a.site?' selected':'')+'>'+s+'</option>').join('')+'</select></div>'
     +'<div class="form-group form-full"><label>เหตุผล / หมายเหตุ</label><textarea id="'+idp+'t-note"></textarea></div>';
   }else if(type==='Return'){
@@ -4445,6 +4480,10 @@ function submitAction(type,tag,idp){idp=idp||'';let detail={};
   const r=createRequest(type,tag,detail);closeModals();renderAll();
   toast('✓ '+r.id+' created — รออนุมัติ '+lvlLabel(r));}
 function closeModals(){document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('open'));}
+function showFullDesc(tag){const a=S.assets.find(x=>x.tag===tag);if(!a)return;
+  document.getElementById('desc-modal-title').innerHTML='<span class="mono" style="color:var(--teal)">'+a.tag+'</span> — Description';
+  document.getElementById('desc-modal-body').textContent=a.desc;
+  document.getElementById('modal-desc').classList.add('open');}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModals();}));
 
 /* ═══════════ MODAL: TRANSFER / RETURN / DISPOSAL (row action buttons) ═══════════ */
@@ -4506,12 +4545,12 @@ function renderTxnAssetOptions(){const rowsEl=document.getElementById('txp-rows'
       &&(!fOwner||a.owner.toLowerCase().includes(fOwner))&&(!fCc||(a.cc||'').toLowerCase().includes(fCc))&&(!fSite||a.site.toLowerCase().includes(fSite))&&(!fSerial||(a.serial||'').toLowerCase().includes(fSerial)))
     .filter(a=>!clsF||a.prefix===clsF)
     .filter(a=>!eolF||(eolF==='eol'?isEndOfLife(a):!isEndOfLife(a))),txpSort,ovColValue);
-  ['tag','faNo','desc','class','entity','owner','cc','site','cost','nbv','status','date','life','eol'].forEach(k=>{const el=document.getElementById('txp-sort-'+k);if(el)el.innerHTML=sortArrow(txpSort,k);});
+  paintSortHeaders('txp',txpSort,['tag','faNo','desc','class','entity','owner','cc','site','cost','nbv','status','date','life','eol']);
   const selEntity=txpSelected.size?S.assets.find(a=>a.tag===[...txpSelected][0]).entity:null;
   rowsEl.innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const locked=selEntity&&a.entity!==selEntity&&!txpSelected.has(a.tag);const eol=isEndOfLife(a);const eolD=eolDate(a);
     return '<tr style="'+(locked?'opacity:.35':'cursor:pointer')+'" onclick="'+(locked?'':'txpToggle(\''+a.tag+'\')')+'">'
     +'<td><input type="checkbox" '+(txpSelected.has(a.tag)?'checked':'')+(locked?' disabled':'')+' onclick="event.stopPropagation();txpToggle(\''+a.tag+'\')"></td>'
-    +'<td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="max-width:220px;white-space:normal;word-break:break-word">'+a.desc+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td class="text-muted">'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+'</td></tr>';}).join(''):'<tr><td colspan="16" class="empty">ไม่พบทรัพย์สิน</td></tr>';
+    +'<td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="min-width:340px;max-width:340px" onclick="event.stopPropagation();showFullDesc(\''+a.tag+'\')"><div class="desc-clamp">'+a.desc+'</div>'+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td class="text-muted">'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+'</td></tr>';}).join(''):'<tr><td colspan="16" class="empty">ไม่พบทรัพย์สิน</td></tr>';
   document.getElementById('txp-selcount').textContent=txpSelected.size?('เลือกแล้ว '+txpSelected.size+' รายการ ('+selEntity+') — เลือกได้เฉพาะ entity เดียวกันในชุดเดียว'):'ยังไม่ได้เลือกทรัพย์สิน · พบ '+list.length+' รายการตาม filter';
   document.getElementById('txp-print-btn').disabled=!txpSelected.size;
   txpBuildFields();}
@@ -4532,9 +4571,9 @@ function buildBatchFieldsHTML(type,tags,entity){
   let html='<div class="form-full doa-hint">'+tags.length+' รายการ: <span class="mono">'+tags.join(', ')+'</span><br>DOA จะคำนวณแยกตาม NBV+category ของแต่ละรายการโดยอัตโนมัติ (chain-walk ตาม DOA_MATRIX)</div>';
   if(type==='Transfer'){
     html+='<div class="form-group"><label>โอนให้ Owner ใหม่ *</label><select id="txp-b-owner" onchange="syncOwnerCC(\'txp-b\')">'+S.employees.map(e=>'<option>'+e.name+'</option>').join('')+'</select></div>'
-    +'<div class="form-group"><label>Cost center ใหม่</label><input list="dl-cc" id="txp-b-cc" placeholder="เลือกหรือพิมพ์เอง"></div>'
-    +'<div class="form-group"><label>Main account ใหม่</label><input list="dl-main" id="txp-b-main" placeholder="เลือกหรือพิมพ์เอง"></div>'
-    +'<div class="form-group"><label>Sub account ใหม่</label><input list="dl-sub" id="txp-b-sub" placeholder="เลือกหรือพิมพ์เอง"></div>'
+    +'<div class="form-group"><label>Cost center ใหม่</label><input data-ac="cc" id="txp-b-cc" placeholder="เลือกหรือพิมพ์เอง" autocomplete="off"></div>'
+    +'<div class="form-group"><label>Main account ใหม่</label><input data-ac="main" id="txp-b-main" placeholder="เลือกหรือพิมพ์เอง" autocomplete="off"></div>'
+    +'<div class="form-group"><label>Sub account ใหม่</label><input data-ac="sub" id="txp-b-sub" placeholder="เลือกหรือพิมพ์เอง" autocomplete="off"></div>'
     +'<div class="form-group"><label>Site ใหม่</label><select id="txp-b-site">'+SITES.map(s=>'<option>'+s+'</option>').join('')+'</select></div>'
     +'<div class="form-group form-full"><label>เหตุผล / หมายเหตุ</label><textarea id="txp-b-note"></textarea></div>';
   }else if(type==='Return'){
@@ -4599,63 +4638,46 @@ function renderDash(){const list=S.assets.filter(inScope);
     '<div class="split-bar"><div style="width:'+(nG/tot*100)+'%;background:var(--teal)"></div><div style="width:'+(nP/tot*100)+'%;background:var(--purple)"></div></div>'
    +'<div style="display:flex;gap:24px;margin-top:10px;font-size:12px;color:var(--text2)"><span><span class="badge b-bngs">BNGS</span> ฿'+fmt(nG)+' ('+S.assets.filter(a=>a.entity==='BNGS'&&a.status!=='Disposed'&&a.status!=='Rejected').length+' assets)</span><span><span class="badge b-bpnt">BPNT</span> ฿'+fmt(nP)+' ('+S.assets.filter(a=>a.entity==='BPNT'&&a.status!=='Disposed'&&a.status!=='Rejected').length+' assets)</span></div>';
   document.getElementById('dash-pending').innerHTML=pend.length?pend.map(r=>'<tr onclick="showPage(\'approvals\',document.querySelector(\'[data-page=approvals]\'))" style="cursor:pointer"><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+' '+r.approverName+'</td><td class="text-muted">'+fmtDDMMYYYY(r.date)+' · '+r.by+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">ไม่มีคำขอค้างอนุมัติ</td></tr>';
-  document.getElementById('dash-log').innerHTML=S.log.slice(0,8).map(l=>'<tr><td class="text-muted">'+fmtDDMMYYYY(l.date)+'</td><td class="mono">'+l.tag+'</td><td>'+l.action+'</td><td class="text-muted">'+l.note+'</td><td class="text-muted">'+l.by+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">—</td></tr>';}
+  document.getElementById('dash-log').innerHTML=S.log.slice(0,8).map(l=>'<tr><td class="text-muted">'+fmtDDMMYYYY(l.date)+'</td><td class="mono">'+l.tag+'</td><td>'+l.action+'</td><td class="text-muted">'+l.note+'</td><td class="text-muted">'+l.by+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">—</td></tr>';
+  const liveNow=list.filter(a=>a.status!=='Disposed'&&a.status!=='Rejected');window._rpLiveAssets=liveNow;window._rpAsOf=new Date();
+  const byClassNow={};liveNow.forEach(a=>{const k=a.prefix;byClassNow[k]=byClassNow[k]||{q:0,c:0,n:0};const x=calcNBV(a);byClassNow[k].q++;byClassNow[k].c+=a.cost;byClassNow[k].n+=x.nbv;});
+  document.getElementById('dash-class-sub').textContent='Scope: '+(ENT==='ALL'?'BNGS+BPNT':ENT)+' · ปัจจุบัน';
+  const classRowsNow=Object.entries(byClassNow).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>({key:k,name:classOf(k),cost:v.c,nbv:v.n,qty:v.q}));
+  window._rpCatGroups=buildCatGroups(classRowsNow);
+  document.getElementById('dash-class-chart').innerHTML=renderCatDonut(window._rpCatGroups);
+  document.getElementById('dash-cat-detail').innerHTML='';}
 
 /* ═══════════ RENDER: REGISTER ═══════════ */
-function renderRegister(){const gv=id=>(document.getElementById(id)?.value||'').toLowerCase();
-  const fTag=gv('reg-f-tag'),fFaNo=gv('reg-f-faNo'),fDesc=gv('reg-f-desc'),fOwnerTxt=gv('reg-f-owner'),fCc=gv('reg-f-cc'),fSiteTxt=gv('reg-f-site');
-  const fs=document.getElementById('reg-status').value,fo=document.getElementById('reg-owner').value;
-  const os=document.getElementById('reg-owner');if(os.options.length<=1)os.innerHTML='<option value="">All owners</option>'+S.employees.map(e=>'<option>'+e.name+'</option>').join('');
-  const list=sortRows(S.assets.filter(inScope).filter(a=>
-      (!fTag||a.tag.toLowerCase().includes(fTag))&&(!fFaNo||(a.faNo||'').toLowerCase().includes(fFaNo))&&(!fDesc||a.desc.toLowerCase().includes(fDesc))
-      &&(!fOwnerTxt||a.owner.toLowerCase().includes(fOwnerTxt))&&(!fCc||(a.cc||'').toLowerCase().includes(fCc))&&(!fSiteTxt||a.site.toLowerCase().includes(fSiteTxt))
-      &&(!fs||(fs==='Pending'?a.status.startsWith('Pending'):a.status===fs))&&(!fo||a.owner===fo)),regSort,regColValue);
-  ['tag','faNo','desc','entity','owner','site','cost','nbv','status'].forEach(k=>{const el=document.getElementById('reg-sort-'+k);if(el)el.innerHTML=sortArrow(regSort,k);});
-  document.getElementById('reg-sub').textContent=list.length+' assets · Cost ฿'+fmt(list.reduce((s,a)=>s+a.cost,0))+' · NBV ฿'+fmt(list.filter(a=>a.status!=='Disposed').reduce((s,a)=>s+calcNBV(a).nbv,0));
-  document.getElementById('reg-rows').innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const can=a.status==='Active'||a.status==='In Stock';
-    return '<tr><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="max-width:280px;white-space:normal;word-break:break-word">'+a.desc+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+' · '+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td>'
-    +'<td style="white-space:nowrap"><button class="btn btn-sm" title="พิมพ์ป้าย Tag" onclick="printLabelsFor([\''+a.tag+'\'])">🏷️</button> <button class="btn btn-sm" title="แก้ไข Useful Life / EOL" onclick="openEditLife(\''+a.tag+'\')">✏️</button> '+(can?'<button class="btn btn-sm" title="Transfer" onclick="openAction(\'Transfer\',\''+a.tag+'\')">⇄</button> <button class="btn btn-sm" title="Return" onclick="openAction(\'Return\',\''+a.tag+'\')">⤺</button> <button class="btn btn-sm btn-red" title="Disposal" onclick="openAction(\'Disposal\',\''+a.tag+'\')">✕</button>':'')+'</td></tr>'}).join(''):'<tr><td colspan="11" class="empty">ไม่พบทรัพย์สิน</td></tr>';}
-function clearRegisterFilters(){
-  ['reg-f-tag','reg-f-faNo','reg-f-desc','reg-f-owner','reg-f-cc','reg-f-site'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['reg-status','reg-owner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  regSort={key:null,dir:1};renderRegister();toast('🧹 ล้าง filter ทั้งหมดแล้ว');}
-
-/* ═══════════ RENDER: ASSET OVERVIEW ═══════════ */
-function renderOverview(){const rowsEl=document.getElementById('ov-rows');if(!rowsEl)return;
+function renderRegister(){const rowsEl=document.getElementById('reg-rows');if(!rowsEl)return;
   const gv=id=>(document.getElementById(id)?.value||'').toLowerCase();
-  const fTag=gv('ov-f-tag'),fFaNo=gv('ov-f-faNo'),fDesc=gv('ov-f-desc'),fOwnerTxt=gv('ov-f-owner'),fCc=gv('ov-f-cc'),fSiteTxt=gv('ov-f-site'),fSerial=gv('ov-f-serial');
-  const fc=document.getElementById('ov-class').value,fs=document.getElementById('ov-status').value,fo=document.getElementById('ov-owner').value,fsite=document.getElementById('ov-site').value,feol=document.getElementById('ov-eol').value;
+  const fTag=gv('reg-f-tag'),fFaNo=gv('reg-f-faNo'),fDesc=gv('reg-f-desc'),fOwnerTxt=gv('reg-f-owner'),fCc=gv('reg-f-cc'),fMainSub=gv('reg-f-mainsub'),fSiteTxt=gv('reg-f-site'),fSerial=gv('reg-f-serial');
+  const fc=document.getElementById('reg-class').value,fs=document.getElementById('reg-status').value,fo=document.getElementById('reg-owner').value,fsite=document.getElementById('reg-site').value,feol=document.getElementById('reg-eol').value;
   const all=S.assets.filter(inScope);
-  const clsSel=document.getElementById('ov-class');const prevCls=clsSel.value;
+  const clsSel=document.getElementById('reg-class');const prevCls=clsSel.value;
   const clsOptions=[...new Set(all.map(a=>a.prefix))].sort();
   clsSel.innerHTML='<option value="">ทุก class</option>'+clsOptions.map(p=>'<option value="'+p+'"'+(p===prevCls?' selected':'')+'>'+p+' — '+classOf(p)+'</option>').join('');
-  const ownerSel=document.getElementById('ov-owner');const prevOwner=ownerSel.value;
-  ownerSel.innerHTML='<option value="">ทุก owner</option>'+S.employees.map(e=>'<option'+(e.name===prevOwner?' selected':'')+'>'+e.name+'</option>').join('');
-  const siteSel=document.getElementById('ov-site');const prevSite=siteSel.value;
+  const ownerSel=document.getElementById('reg-owner');const prevOwner=ownerSel.value;
+  ownerSel.innerHTML='<option value="">All owners</option>'+S.employees.map(e=>'<option'+(e.name===prevOwner?' selected':'')+'>'+e.name+'</option>').join('');
+  const siteSel=document.getElementById('reg-site');const prevSite=siteSel.value;
   siteSel.innerHTML='<option value="">ทุก site</option>'+SITES.map(s=>'<option'+(s===prevSite?' selected':'')+'>'+s+'</option>').join('');
   const list=sortRows(all.filter(a=>
       (!fTag||a.tag.toLowerCase().includes(fTag))&&(!fFaNo||(a.faNo||'').toLowerCase().includes(fFaNo))&&(!fDesc||a.desc.toLowerCase().includes(fDesc))
-      &&(!fOwnerTxt||a.owner.toLowerCase().includes(fOwnerTxt))&&(!fCc||(a.cc||'').toLowerCase().includes(fCc))&&(!fSiteTxt||a.site.toLowerCase().includes(fSiteTxt))&&(!fSerial||(a.serial||'').toLowerCase().includes(fSerial))
-      &&(!fc||a.prefix===fc)&&(!fs||(fs==='Pending'?a.status.startsWith('Pending'):a.status===fs))&&(!fo||a.owner===fo)&&(!fsite||a.site===fsite)&&(!feol||isEndOfLife(a))),ovSort,ovColValue);
-  ['tag','faNo','desc','class','entity','owner','cc','site','cost','nbv','status','date','life','eol'].forEach(k=>{const el=document.getElementById('ov-sort-'+k);if(el)el.innerHTML=sortArrow(ovSort,k);});
-  document.getElementById('ov-count').textContent=list.length+' รายการ (จากทั้งหมด '+all.length+') · Cost รวม ฿'+fmt(list.reduce((s,a)=>s+a.cost,0))+' · NBV รวม ฿'+fmt(list.filter(a=>a.status!=='Disposed').reduce((s,a)=>s+calcNBV(a).nbv,0));
-  rowsEl.innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const eol=isEndOfLife(a);const eolD=eolDate(a);
-    return '<tr><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="max-width:260px;white-space:normal;word-break:break-word">'+a.desc+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+' <span class="badge b-gray" style="font-size:8.5px;vertical-align:middle" title="'+(eolSource(a)==='Master'?'มาจาก master Estimated EOL':'คำนวณจาก In-service + Useful life')+'">'+eolSource(a)+'</span></td></tr>';}).join(''):'<tr><td colspan="16" class="empty">ไม่พบทรัพย์สินตาม filter ที่เลือก</td></tr>';}
-function clearOverviewFilters(){
-  ['ov-f-tag','ov-f-faNo','ov-f-desc','ov-f-owner','ov-f-cc','ov-f-site','ov-f-serial'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['ov-class','ov-status','ov-owner','ov-site','ov-eol'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ovSort={key:null,dir:1};renderOverview();toast('🧹 ล้าง filter ทั้งหมดแล้ว');}
-function exportOverviewCSV(){const gv=id=>(document.getElementById(id)?.value||'').toLowerCase();
-  const fTag=gv('ov-f-tag'),fFaNo=gv('ov-f-faNo'),fDesc=gv('ov-f-desc'),fOwnerTxt=gv('ov-f-owner'),fCc=gv('ov-f-cc'),fSiteTxt=gv('ov-f-site'),fSerial=gv('ov-f-serial');
-  const fc=document.getElementById('ov-class').value,fs=document.getElementById('ov-status').value,fo=document.getElementById('ov-owner').value,fsite=document.getElementById('ov-site').value,feol=document.getElementById('ov-eol').value;
-  const list=S.assets.filter(inScope).filter(a=>
-      (!fTag||a.tag.toLowerCase().includes(fTag))&&(!fFaNo||(a.faNo||'').toLowerCase().includes(fFaNo))&&(!fDesc||a.desc.toLowerCase().includes(fDesc))
-      &&(!fOwnerTxt||a.owner.toLowerCase().includes(fOwnerTxt))&&(!fCc||(a.cc||'').toLowerCase().includes(fCc))&&(!fSiteTxt||a.site.toLowerCase().includes(fSiteTxt))&&(!fSerial||(a.serial||'').toLowerCase().includes(fSerial))
-      &&(!fc||a.prefix===fc)&&(!fs||(fs==='Pending'?a.status.startsWith('Pending'):a.status===fs))&&(!fo||a.owner===fo)&&(!fsite||a.site===fsite)&&(!feol||isEndOfLife(a)));
-  dlCSV('asset_overview_'+ENT+'_'+today()+'.csv',[['Tag','Description','Class','Entity','Owner','CostCenter','MainAccount','SubAccount','Site','Cost','NBV','Status','DisposalType','Serial','InService','LifeYr','EndOfLife','EndOfLifeDate','EOLSource']].concat(list.map(a=>[a.tag,a.desc,a.prefix,a.entity,a.owner,a.cc,a.mainAccount,a.subAccount,a.site,a.cost,calcNBV(a).nbv,a.status,a.disposalType,a.serial,a.date,a.life,isEndOfLife(a)?'Yes':'No',fmtDate(eolDate(a)),eolSource(a)])));toast('✓ Exported overview CSV');}
+      &&(!fOwnerTxt||a.owner.toLowerCase().includes(fOwnerTxt))&&(!fCc||(a.cc||'').toLowerCase().includes(fCc))&&(!fMainSub||((a.mainAccount||'')+'-'+(a.subAccount||'')).toLowerCase().includes(fMainSub))&&(!fSiteTxt||a.site.toLowerCase().includes(fSiteTxt))&&(!fSerial||(a.serial||'').toLowerCase().includes(fSerial))
+      &&(!fc||a.prefix===fc)&&(!fs||(fs==='Pending'?a.status.startsWith('Pending'):a.status===fs))&&(!fo||a.owner===fo)&&(!fsite||a.site===fsite)&&(!feol||isEndOfLife(a))),regSort,regColValue);
+  paintSortHeaders('reg',regSort,['tag','faNo','desc','class','entity','owner','cc','site','cost','nbv','status','date','life','eol']);
+  document.getElementById('reg-sub').textContent=list.length+' assets (จากทั้งหมด '+all.length+') · Cost ฿'+fmt(list.reduce((s,a)=>s+a.cost,0))+' · NBV ฿'+fmt(list.filter(a=>a.status!=='Disposed').reduce((s,a)=>s+calcNBV(a).nbv,0));
+  rowsEl.innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const can=a.status==='Active'||a.status==='In Stock';const eol=isEndOfLife(a);const eolD=eolDate(a);
+    return '<tr><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="min-width:400px;max-width:400px" onclick="showFullDesc(\''+a.tag+'\')"><div class="desc-clamp">'+a.desc+'</div>'+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+' <span class="badge b-gray" style="font-size:8.5px;vertical-align:middle" title="'+(eolSource(a)==='Master'?'มาจาก master Estimated EOL':'คำนวณจาก In-service + Useful life')+'">'+eolSource(a)+'</span></td>'
+    +'<td style="white-space:nowrap"><button class="btn btn-sm" title="พิมพ์ป้าย Tag" onclick="printLabelsFor([\''+a.tag+'\'])">🏷️</button> <button class="btn btn-sm" title="แก้ไข Useful Life / EOL" onclick="openEditLife(\''+a.tag+'\')">✏️</button> '+(can?'<button class="btn btn-sm" title="Transfer" onclick="openAction(\'Transfer\',\''+a.tag+'\')">⇄</button> <button class="btn btn-sm" title="Return" onclick="openAction(\'Return\',\''+a.tag+'\')">⤺</button> <button class="btn btn-sm btn-red" title="Disposal" onclick="openAction(\'Disposal\',\''+a.tag+'\')">✕</button>':'')+'</td></tr>'}).join(''):'<tr><td colspan="17" class="empty">ไม่พบทรัพย์สินตาม filter ที่เลือก</td></tr>';}
+function clearRegisterFilters(){
+  ['reg-f-tag','reg-f-faNo','reg-f-desc','reg-f-owner','reg-f-cc','reg-f-mainsub','reg-f-site','reg-f-serial'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['reg-class','reg-status','reg-owner','reg-site','reg-eol'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  regSort={key:null,dir:1};renderRegister();toast('🧹 ล้าง filter ทั้งหมดแล้ว');}
 
 /* ═══════════ RENDER: APPROVALS & REQUESTS ═══════════ */
-function renderApprovals(){const pend=S.requests.filter(r=>r.status==='Pending'&&inScope(r));
+function renderApprovals(){const q=(document.getElementById('appr-search').value||'').toLowerCase().trim();
+  const pend=S.requests.filter(r=>r.status==='Pending'&&inScope(r)).filter(r=>{if(!q)return true;const a=S.assets.find(x=>x.tag===r.tag);
+    return r.id.toLowerCase().includes(q)||r.tag.toLowerCase().includes(q)||(a&&a.desc&&a.desc.toLowerCase().includes(q))||(r.by||'').toLowerCase().includes(q);});
   document.getElementById('doa-summary').innerHTML=(CFG.flowSubmit?'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12.5px;color:var(--text2)">ℹ️ ระบบเชื่อมต่อ Power Automate แล้ว — คำขอที่ยื่นจากแอปนี้จะไปรออนุมัติจริงใน <strong>Teams</strong> ตาม DOA Matrix ใน SharePoint เท่านั้น หน้านี้แสดงสถานะเพื่อติดตาม ไม่ใช่จุดอนุมัติ</div>':'')
     +'DOA: <span style="color:var(--teal)">Register/Transfer/Return</span> → หัวหน้าของ asset owner (SUP) · <span style="color:var(--text)">Disposal</span> → chain-walk ตาม DOA_MATRIX (Sale/Donation/Write-off ตาม category+NBV) จนถึงคนที่มี authority พอ · <span style="color:var(--red)">Sale เกิน SVP limit</span> → Asset Disposal Committee → CEO';
   const badge=document.getElementById('appr-badge');const allPend=S.requests.filter(r=>r.status==='Pending').length;
@@ -4670,12 +4692,14 @@ function renderApprovals(){const pend=S.requests.filter(r=>r.status==='Pending'&
       ?'<div class="req-actions"><span class="badge b-pending" style="padding:6px 10px">⏳ รออนุมัติใน Teams — '+r.approverName+'</span></div></div>'
       :'<div class="req-actions"><button class="btn btn-green" onclick="approveRequest(\''+r.id+'\')">✓ Approve</button><button class="btn btn-red" onclick="rejectRequest(\''+r.id+'\')">✕ Reject</button></div></div>')}).join('')
     :'<div class="empty" style="padding:40px">ไม่มีคำขอรออนุมัติในขอบเขตนี้</div>';}
-function renderRequests(){const ft=document.getElementById('rq-type').value,fs=document.getElementById('rq-status').value;
-  const list=sortRows(S.requests.filter(inScope).filter(r=>(!ft||r.type===ft)&&(!fs||r.status===fs)),rqSort,rqColValue);
-  ['request','type','tag','entity','nbv','level','status'].forEach(k=>{const el=document.getElementById('rq-sort-'+k);if(el)el.innerHTML=sortArrow(rqSort,k);});
+function renderRequests(){const ft=document.getElementById('rq-type').value,fs=document.getElementById('rq-status').value,q=(document.getElementById('rq-search').value||'').toLowerCase().trim();
+  const list=sortRows(S.requests.filter(inScope).filter(r=>(!ft||r.type===ft)&&(!fs||r.status===fs))
+    .filter(r=>{if(!q)return true;const a=S.assets.find(x=>x.tag===r.tag);
+      return r.id.toLowerCase().includes(q)||r.tag.toLowerCase().includes(q)||(r.approverName||'').toLowerCase().includes(q)||(r.by||'').toLowerCase().includes(q)||(a&&a.desc&&a.desc.toLowerCase().includes(q));}),rqSort,rqColValue);
+  paintSortHeaders('rq',rqSort,['request','type','tag','entity','nbv','level','status']);
   document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+fmtDDMMYYYY(r.approveDate):'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';}
 function clearRequestsFilters(){
-  ['rq-type','rq-status'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['rq-type','rq-status','rq-search'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   rqSort={key:null,dir:1};renderRequests();toast('🧹 ล้าง filter ทั้งหมดแล้ว');}
 
 /* ═══════════ RENDER: PHYSICAL CHECK ═══════════ */
@@ -4692,21 +4716,59 @@ function renderPhysical(){curCheck=S.checks.find(c=>c.status==='Open')||null;
   document.getElementById('pc-start-btn').style.display=curCheck?'none':'inline-flex';
   document.getElementById('pc-close-btn').style.display=curCheck?'inline-flex':'none';
   const card=document.getElementById('pc-list-card');
+  document.getElementById('pc-toolbar').style.display=curCheck?'flex':'none';
   if(curCheck){card.style.display='block';const tags=Object.keys(curCheck.items);
     const done=tags.filter(t=>curCheck.items[t]).length,found=tags.filter(t=>curCheck.items[t]==='found').length,miss=tags.filter(t=>curCheck.items[t]==='missing').length;
     document.getElementById('pc-round-title').textContent=curCheck.id+' · '+curCheck.period+' · scope '+(curCheck.scope==='ALL'?'BNGS+BPNT':curCheck.scope);
     document.getElementById('pc-progress').style.width=(done/tags.length*100)+'%';
     document.getElementById('pc-progress-txt').textContent=done+'/'+tags.length;
     document.getElementById('pc-metrics').innerHTML='<div class="metric m-blue"><div class="metric-label">🔍 To check</div><div class="metric-value">'+tags.length+'</div></div><div class="metric m-green"><div class="metric-label">✅ Found</div><div class="metric-value" style="color:var(--green)">'+found+'</div></div><div class="metric m-red"><div class="metric-label">❌ Missing</div><div class="metric-value" style="color:var(--red)">'+miss+'</div></div><div class="metric m-amber"><div class="metric-label">⏳ Remaining</div><div class="metric-value">'+(tags.length-done)+'</div></div>';
-    document.getElementById('pc-rows').innerHTML=tags.map(t=>{const a=S.assets.find(x=>x.tag===t);if(!a)return'';const v=curCheck.items[t];
+    document.getElementById('pc-rows').innerHTML=(function(){const q=(document.getElementById('pc-search').value||'').toLowerCase().trim();
+      const shown=q?tags.filter(t=>{const a=S.assets.find(x=>x.tag===t);return t.toLowerCase().includes(q)||(a&&((a.desc||'').toLowerCase().includes(q)||(a.owner||'').toLowerCase().includes(q)));}):tags;
+      if(!shown.length)return '<div class="empty">ไม่พบรายการที่ตรงกับคำค้นหา</div>';
+      return shown.map(t=>{const a=S.assets.find(x=>x.tag===t);if(!a)return'';const v=curCheck.items[t];
       return '<div class="pc-row"><div><span class="mono">'+t+'</span> · '+a.desc+' <span class="text-muted" style="font-size:11px">'+a.owner+' · '+a.site+'</span> '+entBadge(a.entity)+'</div>'
       +'<div style="display:flex;gap:6px;align-items:center"><button class="btn btn-sm '+(v==='found'?'btn-green':'')+'" onclick="markCheck(\''+t+'\',\'found\')">พบ</button><button class="btn btn-sm '+(v==='missing'?'btn-red':'')+'" onclick="markCheck(\''+t+'\',\'missing\')">ไม่พบ</button>'
-      +(v==='missing'&&a.status!=='Pending Disposal'?'<button class="btn btn-sm btn-amber" onclick="openAction(\'Disposal\',\''+t+'\')">→ LOSS</button>':'')+'</div></div>'}).join('');
+      +(v==='missing'&&a.status!=='Pending Disposal'?'<button class="btn btn-sm btn-amber" onclick="openAction(\'Disposal\',\''+t+'\')">→ LOSS</button>':'')+'</div></div>'}).join('');})();
   }else{card.style.display='none';document.getElementById('pc-metrics').innerHTML='<div class="metric"><div class="metric-label">Status</div><div class="metric-value" style="font-size:15px">ยังไม่มีรอบตรวจนับที่เปิดอยู่</div><div class="metric-sub">กด Start check round เพื่อสร้างรอบตามขอบเขต entity ที่เลือกด้านบน</div></div>';}
   document.getElementById('pc-history').innerHTML=S.checks.length?S.checks.map(c=>{const vals=Object.values(c.items);
     return '<tr><td class="mono">'+c.id+'</td><td>'+c.period+'</td><td>'+(c.scope==='ALL'?'BNGS+BPNT':c.scope)+'</td><td class="text-right">'+vals.length+'</td><td class="text-right" style="color:var(--green)">'+vals.filter(v=>v==='found').length+'</td><td class="text-right" style="color:var(--red)">'+vals.filter(v=>v==='missing').length+'</td><td>'+(c.status==='Open'?'<span class="badge b-pending">Open</span>':'<span class="badge b-gray">Closed</span>')+'</td></tr>'}).join(''):'<tr><td colspan="7" class="empty">ยังไม่เคยตรวจนับ</td></tr>';}
 
 /* ═══════════ RENDER: REPORT ═══════════ */
+const CAT_COLORS=['var(--teal)','var(--blue)','var(--purple)','var(--amber)','var(--green)','var(--red)'];
+function buildCatGroups(classRows){const top=classRows.slice(0,6);const rest=classRows.slice(6);
+  const groups=top.map((r,i)=>({key:r.key,name:r.name,cost:r.cost,nbv:r.nbv,qty:r.qty,color:CAT_COLORS[i],members:[r]}));
+  if(rest.length){groups.push({key:'__other__',name:'Other ('+rest.length+' classes)',cost:rest.reduce((s,r)=>s+r.cost,0),nbv:rest.reduce((s,r)=>s+r.nbv,0),qty:rest.reduce((s,r)=>s+r.qty,0),color:'var(--text3)',members:rest});}
+  return groups;}
+function renderCatDonut(groups){if(!groups.length)return'<div class="empty">—</div>';
+  const total=groups.reduce((s,g)=>s+g.nbv,0)||1;const size=180,strokeW=28,r=(size-strokeW)/2,c=2*Math.PI*r,cx=size/2,cy=size/2;
+  let offset=0;
+  const segs=groups.map(g=>{const dash=g.nbv/total*c;
+    const seg='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+g.color+'" stroke-width="'+strokeW+'" stroke-dasharray="'+dash+' '+(c-dash)+'" stroke-dashoffset="'+(-offset)+'" style="cursor:pointer;transition:opacity .15s" onclick="showCatDetail(\''+g.key+'\')"><title>'+g.name+'</title></circle>';
+    offset+=dash;return seg;}).join('');
+  const svg='<div style="position:relative;width:'+size+'px;height:'+size+'px;flex-shrink:0"><svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="transform:rotate(-90deg)">'+segs+'</svg>'
+    +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none"><div style="font-size:11px;color:var(--text3)">Total NBV</div><div class="mono" style="font-size:14px;font-weight:600">฿'+fmt(total)+'</div></div></div>';
+  const legend='<div style="flex:1;min-width:220px">'+groups.map(g=>
+    '<div onclick="showCatDetail(\''+g.key+'\')" style="display:flex;align-items:center;gap:9px;padding:7px 4px;cursor:pointer;border-radius:6px;transition:background .12s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'">'
+    +'<span style="width:11px;height:11px;border-radius:3px;background:'+g.color+';flex-shrink:0"></span>'
+    +'<span style="flex:1;font-size:13px">'+g.name+'</span>'
+    +'<span class="mono" style="font-size:12px;color:var(--text2)">'+(g.nbv/total*100).toFixed(1)+'%</span>'
+    +'<span class="mono" style="font-size:12px;width:100px;text-align:right">฿'+fmt(g.nbv)+'</span></div>').join('')+'</div>';
+  return '<div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">'+svg+legend+'</div>'
+    +'<div class="hint" style="padding:8px 4px 0">คลิกที่วงหรือรายการ เพื่อดูรายละเอียดแยกตาม class</div>';}
+function showCatDetail(key){const groups=window._rpCatGroups||[];const g=groups.find(x=>x.key===key);const el=document.getElementById('dash-cat-detail');if(!g||!el)return;
+  el.innerHTML='<div style="border-top:1px solid var(--border);margin-top:8px"><div style="padding:12px 4px 8px;font-size:13px;font-weight:600">'+g.name+' — '+g.members.length+' class'+(g.members.length>1?'es':'')+'</div>'
+    +'<table style="width:100%"><thead><tr><th>Class</th><th class="text-right">Qty</th><th class="text-right">Cost</th><th class="text-right">NBV</th></tr></thead><tbody>'
+    +g.members.map(m=>'<tr style="cursor:pointer" onclick="showClassDetail(\''+key+'\',\''+m.key+'\')" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'"><td>'+m.name+' <span class="text-muted" style="font-size:11px">→</span></td><td class="text-right">'+m.qty+'</td><td class="text-right">฿'+fmt(m.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(m.nbv)+'</td></tr>').join('')
+    +'</tbody></table><div class="hint" style="padding:6px 4px 0">คลิกแถว class เพื่อดูรายการ asset แต่ละชิ้น</div></div>';}
+function showClassDetail(catKey,classKey){const live=window._rpLiveAssets||[];const asOf=window._rpAsOf||new Date();
+  const list=live.filter(a=>a.prefix===classKey);const el=document.getElementById('dash-cat-detail');if(!el)return;
+  el.innerHTML='<div style="border-top:1px solid var(--border);margin-top:8px">'
+    +'<div style="padding:12px 4px 4px;font-size:12px"><a href="javascript:void(0)" onclick="showCatDetail(\''+catKey+'\')" style="color:var(--blue);text-decoration:none">← กลับไป category</a></div>'
+    +'<div style="padding:2px 4px 8px;font-size:13px;font-weight:600">'+classOf(classKey)+' — '+list.length+' รายการ</div>'
+    +'<table style="width:100%"><thead><tr><th>Tag</th><th>Description</th><th>Entity</th><th>Owner</th><th class="text-right">Cost</th><th class="text-right">NBV</th><th>Status</th></tr></thead><tbody>'
+    +(list.length?list.map(a=>{const {nbv}=calcNBV(a,asOf);return '<tr><td class="mono">'+a.tag+'</td><td class="text-muted" style="max-width:260px;white-space:normal;word-break:break-word">'+a.desc+'</td><td>'+entBadge(a.entity)+'</td><td class="text-muted">'+a.owner+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">—</td></tr>')
+    +'</tbody></table></div>';}
 function renderReport(){const mv=document.getElementById('rp-month').value||new Date().toISOString().slice(0,7);
   document.getElementById('rp-month').value=mv;const asOf=new Date(mv+'-28');
   const list=S.assets.filter(inScope).filter(a=>a.status!=='Rejected'&&new Date(a.date)<=asOf);
@@ -4718,9 +4780,6 @@ function renderReport(){const mv=document.getElementById('rp-month').value||new 
    +'<div class="metric m-teal"><div class="metric-label">💵 Total cost</div><div class="metric-value">฿'+fmt(cost)+'</div></div>'
    +'<div class="metric m-amber"><div class="metric-label">📉 Accum. depreciation</div><div class="metric-value" style="color:var(--amber)">฿'+fmt(depr)+'</div></div>'
    +'<div class="metric m-green"><div class="metric-label">💰 NBV as of '+mv+'</div><div class="metric-value" style="color:var(--green)">฿'+fmt(nbv)+'</div></div>';
-  const byClass={};live.forEach(a=>{const k=a.prefix;byClass[k]=byClass[k]||{q:0,c:0,d:0,n:0};const x=calcNBV(a,asOf);byClass[k].q++;byClass[k].c+=a.cost;byClass[k].d+=x.depr;byClass[k].n+=x.nbv;});
-  document.getElementById('rp-class-sub').textContent='Scope: '+(ENT==='ALL'?'BNGS+BPNT':ENT)+' · as of '+mv;
-  document.getElementById('rp-class-rows').innerHTML=Object.entries(byClass).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>'<tr><td class="mono">'+k+'</td><td>'+classOf(k)+'</td><td class="text-right">'+v.q+'</td><td class="text-right">฿'+fmt(v.c)+'</td><td class="text-right" style="color:var(--amber)">฿'+fmt(v.d)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(v.n)+'</td></tr>').join('')||'<tr><td colspan="6" class="empty">—</td></tr>';
   const disp=list.filter(a=>a.status==='Disposed'&&(a.disposedDate||'').slice(0,7)===mv);
   document.getElementById('rp-disp-rows').innerHTML=DISPOSAL_TYPES.map(t=>{const d=disp.filter(a=>a.disposalType===t);
     return '<tr><td><span class="badge b-gray">'+t+'</span></td><td class="text-right">'+d.length+'</td><td class="text-right">฿'+fmt(d.reduce((s,a)=>{const before=new Date(a.disposedDate);before.setMonth(before.getMonth());return s+ (a.cost - Math.min(a.cost,Math.round(a.cost/(a.life*12)*monthsBetween(new Date(a.date),before))));},0))+'</td></tr>'}).join('');
@@ -4733,42 +4792,132 @@ function renderReport(){const mv=document.getElementById('rp-month').value||new 
 /* ═══════════ EXPORT CSV (UTF-8 BOM) ═══════════ */
 function dlCSV(name,rows){const csv='\ufeff'+rows.map(r=>r.map(v=>{const s=String(v==null?'':v);return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();}
-function exportAssetsCSV(){const list=S.assets.filter(inScope);
-  dlCSV('assets_'+(ENT)+'_'+today()+'.csv',[['Tag','Description','Entity','Owner','CostCenter','MainAccount','SubAccount','Site','Cost','NBV','Status','DisposalType','Serial','InService','LifeYr']].concat(list.map(a=>[a.tag,a.desc,a.entity,a.owner,a.cc,a.mainAccount,a.subAccount,a.site,a.cost,calcNBV(a).nbv,a.status,a.disposalType,a.serial,a.date,a.life])));toast('✓ Exported CSV');}
-function exportReportCSV(){const mv=document.getElementById('rp-month').value;const asOf=new Date(mv+'-28');
-  const list=S.assets.filter(inScope).filter(a=>a.status!=='Rejected'&&new Date(a.date)<=asOf&&!(a.status==='Disposed'&&a.disposedDate&&a.disposedDate.slice(0,7)<=mv));
-  dlCSV('report_'+mv+'_'+ENT+'.csv',[['Tag','Class','Entity','Owner','Cost','AccumDepr','NBV','Status']].concat(list.map(a=>{const c=calcNBV(a,asOf);return[a.tag,classOf(a.prefix),a.entity,a.owner,a.cost,c.depr,c.nbv,a.status]})));toast('✓ Exported report CSV');}
+function exportAssetsCSV(){const gv=id=>(document.getElementById(id)?.value||'').toLowerCase();
+  const fTag=gv('reg-f-tag'),fFaNo=gv('reg-f-faNo'),fDesc=gv('reg-f-desc'),fOwnerTxt=gv('reg-f-owner'),fCc=gv('reg-f-cc'),fMainSub=gv('reg-f-mainsub'),fSiteTxt=gv('reg-f-site'),fSerial=gv('reg-f-serial');
+  const fc=document.getElementById('reg-class').value,fs=document.getElementById('reg-status').value,fo=document.getElementById('reg-owner').value,fsite=document.getElementById('reg-site').value,feol=document.getElementById('reg-eol').value;
+  const list=S.assets.filter(inScope).filter(a=>
+      (!fTag||a.tag.toLowerCase().includes(fTag))&&(!fFaNo||(a.faNo||'').toLowerCase().includes(fFaNo))&&(!fDesc||a.desc.toLowerCase().includes(fDesc))
+      &&(!fOwnerTxt||a.owner.toLowerCase().includes(fOwnerTxt))&&(!fCc||(a.cc||'').toLowerCase().includes(fCc))&&(!fMainSub||((a.mainAccount||'')+'-'+(a.subAccount||'')).toLowerCase().includes(fMainSub))&&(!fSiteTxt||a.site.toLowerCase().includes(fSiteTxt))&&(!fSerial||(a.serial||'').toLowerCase().includes(fSerial))
+      &&(!fc||a.prefix===fc)&&(!fs||(fs==='Pending'?a.status.startsWith('Pending'):a.status===fs))&&(!fo||a.owner===fo)&&(!fsite||a.site===fsite)&&(!feol||isEndOfLife(a)));
+  dlCSV('asset_register_'+ENT+'_'+today()+'.csv',[['Tag','FANo','Description','Class','Entity','Owner','CostCenter','MainAccount','SubAccount','Site','Cost','NBV','Status','DisposalType','Serial','InService','LifeYr','EndOfLife','EndOfLifeDate','EOLSource']].concat(list.map(a=>[a.tag,a.faNo,a.desc,a.prefix,a.entity,a.owner,a.cc,a.mainAccount,a.subAccount,a.site,a.cost,calcNBV(a).nbv,a.status,a.disposalType,a.serial,a.date,a.life,isEndOfLife(a)?'Yes':'No',fmtDate(eolDate(a)),eolSource(a)])));toast('✓ Exported CSV');}
+function exportReportCSV(){const mv=document.getElementById('rp-month').value||new Date().toISOString().slice(0,7);const asOf=new Date(mv+'-28');
+  const list=S.assets.filter(inScope).filter(a=>a.status!=='Rejected'&&new Date(a.date)<=asOf);
+  const live=list.filter(a=>!(a.status==='Disposed'&&a.disposedDate&&a.disposedDate.slice(0,7)<=mv));
+  const byClass={};live.forEach(a=>{const k=a.prefix;byClass[k]=byClass[k]||{c:0,n:0};const x=calcNBV(a,asOf);byClass[k].c+=a.cost;byClass[k].n+=x.nbv;});
+  const classRows=Object.entries(byClass).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>[classOf(k),v.c,v.n]);
+  const txns=S.requests.filter(r=>r.status==='Approved'&&(r.approveDate||'').slice(0,7)===mv&&inScope(r));
+  const txnRows=txns.map(r=>[r.id,r.type,r.tag,r.entity,summaryOf(r),r.approver,r.approveDate]);
+  const disp=list.filter(a=>a.status==='Disposed'&&(a.disposedDate||'').slice(0,7)===mv);
+  const dispRows=DISPOSAL_TYPES.map(t=>{const d=disp.filter(a=>a.disposalType===t);
+    const nbvOff=d.reduce((s,a)=>{const before=new Date(a.disposedDate);before.setMonth(before.getMonth());return s+(a.cost-Math.min(a.cost,Math.round(a.cost/(a.life*12)*monthsBetween(new Date(a.date),before))));},0);
+    return [t,d.length,nbvOff];});
+  const rows=[['=== BY ASSET CLASS ==='],['Class','Cost','NBV'],...classRows,[],
+    ['=== TRANSACTION SUMMARY ==='],['Request','Type','Asset','Entity','Detail','Approved by','Date'],...txnRows,[],
+    ['=== DISPOSAL IN MONTH ==='],['Type','Qty','NBV written off'],...dispRows];
+  dlCSV('report_'+mv+'_'+ENT+'.csv',rows);toast('✓ Exported report CSV');}
 
 /* ═══════════ SETTINGS ═══════════ */
-function renderSettings(){renderPAConfig();document.getElementById('doa-rows').innerHTML=S.doa.map((d,i)=>'<div class="doa-row"><span>'+lvlBadge(d.level)+'</span><input id="doa-max-'+i+'" class="mono" value="'+(d.max===Infinity?'':d.max)+'" placeholder="∞ (ไม่จำกัด)" '+(i===2?'disabled':'')+'><input id="doa-role-'+i+'" value="'+d.role+'"><input id="doa-name-'+i+'" value="'+d.name+'"></div>').join('');
-  document.getElementById('set-bngs-code').value=S.entities.BNGS.code;document.getElementById('set-bpnt-code').value=S.entities.BPNT.code;
+function renderSettings(){renderPAConfig();
   document.getElementById('emp-sub').textContent=S.employees.length+' employees (DetailofBanpuNEXT 06.07.2026 · updated for resignations/reorg)';
   document.getElementById('emp-rows').innerHTML=S.employees.map(e=>'<tr><td>'+e.name+'</td><td class="text-muted">'+e.dept+'</td><td class="mono">'+(e.cc||'—')+'</td></tr>').join('');
-  document.getElementById('cc-sub').textContent=S.costCenters.length+' cost centers (GL_Cost_Center master) · ใช้เป็น datalist ในหน้า Register/Transaction';
-  document.getElementById('cc-rows').innerHTML=S.costCenters.map(c=>'<tr><td class="mono">'+c.code+'</td><td>'+c.name+'</td></tr>').join('');
-  document.getElementById('acc-sub').textContent=S.mainAccounts.length+' main accounts · '+S.subAccounts.length+' sub accounts (นำเข้าจาก Main_Account.xls / Sub_Account.xls)';
-  document.getElementById('acc-rows').innerHTML=S.mainAccounts.map(m=>'<tr><td class="mono">'+m.code+'</td><td>'+m.name+'</td><td><span class="badge b-gray">Main</span></td></tr>').join('')
-    +S.subAccounts.map(x=>'<tr><td class="mono">'+x.code+'</td><td>'+x.name+'</td><td><span class="badge b-gray">Sub</span></td></tr>').join('');
-  document.getElementById('pfx-sub').textContent=S.prefixes.length+' prefixes (ชุดหลักจาก ASset_class_prefix.xls · auto-generate ได้จาก Register)';
-  document.getElementById('pfx-rows').innerHTML=S.prefixes.map(p=>'<tr><td class="mono" style="color:var(--teal)">'+p.prefix+'</td><td>'+p.name+'</td><td class="mono text-muted">'+(p.cat||'—')+'</td><td class="text-right mono">'+(S.counters[p.prefix]||10001)+'</td></tr>').join('');}
-function saveDOA(){for(let i=0;i<2;i++){const v=Number(document.getElementById('doa-max-'+i).value);if(v>0)S.doa[i].max=v;}
-  S.doa.forEach((d,i)=>{d.role=document.getElementById('doa-role-'+i).value;d.name=document.getElementById('doa-name-'+i).value;});
-  save();renderAll();toast('✓ DOA matrix updated');}
-function saveEntityCfg(){S.entities.BNGS.code=document.getElementById('set-bngs-code').value;S.entities.BPNT.code=document.getElementById('set-bpnt-code').value;save();toast('✓ Entity config saved');}
+  const ccQ=(document.getElementById('cc-search')?.value||'').toLowerCase();
+  const ccList=S.costCenters.filter(c=>!ccQ||c.code.toLowerCase().includes(ccQ)||c.name.toLowerCase().includes(ccQ));
+  document.getElementById('cc-sub').textContent=ccList.length+' / '+S.costCenters.length+' cost centers (GL_Cost_Center master) · ใช้เป็น datalist ในหน้า Register/Transaction';
+  document.getElementById('cc-rows').innerHTML=ccList.length?ccList.map(c=>'<tr><td class="mono">'+c.code+'</td><td>'+c.name+'</td></tr>').join(''):'<tr><td colspan="2" class="empty">ไม่พบรายการ</td></tr>';
+  const accQ=(document.getElementById('acc-search')?.value||'').toLowerCase();
+  const mainList=S.mainAccounts.filter(m=>!accQ||m.code.toLowerCase().includes(accQ)||m.name.toLowerCase().includes(accQ));
+  const subList=S.subAccounts.filter(x=>!accQ||x.code.toLowerCase().includes(accQ)||x.name.toLowerCase().includes(accQ));
+  document.getElementById('acc-sub').textContent=(mainList.length+subList.length)+' / '+(S.mainAccounts.length+S.subAccounts.length)+' accounts (นำเข้าจาก Main_Account.xls / Sub_Account.xls)';
+  document.getElementById('acc-rows').innerHTML=(mainList.map(m=>'<tr><td class="mono">'+m.code+'</td><td>'+m.name+'</td><td><span class="badge b-gray">Main</span></td></tr>').join('')
+    +subList.map(x=>'<tr><td class="mono">'+x.code+'</td><td>'+x.name+'</td><td><span class="badge b-gray">Sub</span></td></tr>').join(''))||'<tr><td colspan="3" class="empty">ไม่พบรายการ</td></tr>';
+  const pfxQ=(document.getElementById('pfx-search')?.value||'').toLowerCase();
+  const pfxList=S.prefixes.filter(p=>!pfxQ||p.prefix.toLowerCase().includes(pfxQ)||p.name.toLowerCase().includes(pfxQ));
+  document.getElementById('pfx-sub').textContent=pfxList.length+' / '+S.prefixes.length+' prefixes (ชุดหลักจาก ASset_class_prefix.xls · auto-generate ได้จาก Register)';
+  document.getElementById('pfx-rows').innerHTML=pfxList.length?pfxList.map(p=>'<tr><td class="mono" style="color:var(--teal)">'+p.prefix+'</td><td>'+p.name+'</td><td class="mono text-muted">'+(p.cat||'—')+'</td><td class="text-right mono">'+(S.counters[p.prefix]||10001)+'</td></tr>').join(''):'<tr><td colspan="4" class="empty">ไม่พบรายการ</td></tr>';}
 function addEmp(){const n=document.getElementById('emp-name').value.trim();if(!n)return;
   S.employees.push({name:n,dept:document.getElementById('emp-dept').value,cc:document.getElementById('emp-cc').value});
   ['emp-name','emp-dept','emp-cc'].forEach(i=>document.getElementById(i).value='');save();renderSettings();toast('✓ Added employee');}
 function addCC(){const code=document.getElementById('cc-code').value.trim();if(!code||S.costCenters.find(c=>c.code===code)){toast('Cost center ว่างหรือซ้ำ','warn');return;}
   S.costCenters.push({code,name:document.getElementById('cc-name').value||code});
   ['cc-code','cc-name'].forEach(i=>document.getElementById(i).value='');save();fillAccountDatalists();renderSettings();toast('✓ Added cost center '+code);}
+function addMainSubAccount(){const type=document.getElementById('ma-type').value;const code=document.getElementById('ma-code').value.trim();const name=document.getElementById('ma-name').value.trim();
+  if(!code){toast('กรุณาระบุรหัส account','warn');return;}
+  const arr=type==='main'?S.mainAccounts:S.subAccounts;
+  if(arr.find(x=>x.code===code)){toast('รหัส account นี้มีอยู่แล้ว','warn');return;}
+  arr.push({code,name:name||code});
+  ['ma-code','ma-name'].forEach(i=>document.getElementById(i).value='');save();fillAccountDatalists();renderSettings();toast('✓ Added '+(type==='main'?'main':'sub')+' account '+code);}
 function addPrefix(){const c=document.getElementById('pfx-code').value.trim().toUpperCase();if(!c||S.prefixes.find(p=>p.prefix===c)){toast('Prefix ว่างหรือซ้ำ','warn');return;}
   S.prefixes.push({prefix:c,name:document.getElementById('pfx-name').value,cat:document.getElementById('pfx-cat').value,kw:''});S.counters[c]=10001;
   ['pfx-code','pfx-name','pfx-cat'].forEach(i=>document.getElementById(i).value='');save();renderSettings();toast('✓ Added prefix '+c);}
 function resetDemo(){if(!confirm('Reset ข้อมูลทั้งหมดกลับเป็น demo เริ่มต้น?'))return;localStorage.removeItem(LS);S=seedState();save();fillAccountDatalists();renderAll();toast('Reset เรียบร้อย');}
 
 /* ═══════════ MASTER RENDER ═══════════ */
-function renderAll(){renderDash();renderRegister();renderOverview();renderApprovals();renderRequests();renderPhysical();renderReport();renderSettings();renderTxnAssetOptions();}
-fillAccountDatalists();syncThemeBtn();renderAll();
+function renderAll(){renderDash();renderRegister();renderApprovals();renderRequests();renderPhysical();renderReport();renderSettings();renderTxnAssetOptions();refreshScrollHints();}
+
+/* ═══════════ SCROLL HINT (→ arrow for tables that overflow horizontally) ═══════════ */
+const SCROLL_HINT_PAIRS=[['reg-rows','reg-scroll-hint'],['txp-rows','txp-scroll-hint']];
+function updateScrollHint(hintId,wrapEl){const hint=document.getElementById(hintId);if(!hint||!wrapEl)return;
+  const can=wrapEl.scrollWidth>wrapEl.clientWidth+4;const atEnd=wrapEl.scrollLeft>=wrapEl.scrollWidth-wrapEl.clientWidth-4;
+  hint.classList.toggle('show',can&&!atEnd);}
+function refreshScrollHints(){SCROLL_HINT_PAIRS.forEach(([rowsId,hintId])=>{const rows=document.getElementById(rowsId);if(!rows)return;
+  const wrap=rows.closest('.table-wrap');if(wrap)updateScrollHint(hintId,wrap);});}
+function initScrollHints(){SCROLL_HINT_PAIRS.forEach(([rowsId,hintId])=>{const rows=document.getElementById(rowsId);if(!rows)return;
+  const wrap=rows.closest('.table-wrap');if(!wrap)return;
+  wrap.addEventListener('scroll',()=>updateScrollHint(hintId,wrap));
+  window.addEventListener('resize',()=>updateScrollHint(hintId,wrap));
+  updateScrollHint(hintId,wrap);});}
+/* ═══════════ FLOATING SEARCH DROPDOWN (autocomplete) ═══════════ */
+function acItems_tag(){return S.assets.filter(inScope).map(a=>({id:a.tag,label:a.tag,sub:a.desc,badgeHtml:statusBadge(a.status)}));}
+function acItems_txptag(){return S.assets.filter(inScope).filter(a=>a.status==='Active'||a.status==='In Stock').map(a=>({id:a.tag,label:a.tag,sub:a.desc+' · '+a.owner,badgeHtml:entBadge(a.entity)}));}
+function acItems_faNo(){return S.assets.filter(inScope).filter(a=>a.faNo).map(a=>({id:a.faNo,label:a.faNo,sub:a.tag+' · '+a.desc}));}
+function acItems_desc(){return S.assets.filter(inScope).map(a=>({id:a.desc,label:a.desc,sub:a.tag,badgeHtml:entBadge(a.entity)}));}
+function acItems_owner(){return S.employees.map(e=>({id:e.name,label:e.name,sub:(e.dept||'')+(e.cc?' · CC '+e.cc:'')}));}
+function acItems_cc(){return S.costCenters.map(c=>({id:c.code,label:c.code,sub:c.name}));}
+function acItems_main(){return S.mainAccounts.map(m=>({id:m.code,label:m.code,sub:m.name}));}
+function acItems_sub(){return S.subAccounts.map(x=>({id:x.code,label:x.code,sub:x.name}));}
+function acItems_site(){return SITES.map(s=>({id:s,label:s}));}
+function acItems_serial(){return S.assets.filter(inScope).filter(a=>a.serial).map(a=>({id:a.serial,label:a.serial,sub:a.tag+' · '+a.desc}));}
+function acItems_rq(){return S.requests.filter(inScope).map(r=>({id:r.id,label:r.id,sub:r.type+' · '+r.tag,badgeHtml:r.status==='Pending'?'<span class="badge b-pending">Pending</span>':r.status==='Approved'?'<span class="badge b-active">Approved</span>':'<span class="badge b-rejected">Rejected</span>'}));}
+function acItems_appr(){return S.requests.filter(r=>r.status==='Pending'&&inScope(r)).map(r=>({id:r.id,label:r.id,sub:r.type+' · '+r.tag,badgeHtml:lvlBadge(r.level)}));}
+function acItems_pc(){if(!curCheck)return[];return Object.keys(curCheck.items).map(t=>{const a=S.assets.find(x=>x.tag===t);
+  const v=curCheck.items[t];return {id:t,label:t,sub:a?a.desc:'',badgeHtml:v==='found'?'<span class="badge b-active">พบ</span>':v==='missing'?'<span class="badge b-disposed">ไม่พบ</span>':'<span class="badge b-pending">รอตรวจ</span>'};});}
+function acItems_pfxcat(){return S.prefixes.map(p=>({id:p.prefix,label:p.prefix,sub:p.name}));}
+function acItems_accall(){return [...S.mainAccounts.map(m=>({id:m.code,label:m.code,sub:m.name+' (Main)'})),...S.subAccounts.map(x=>({id:x.code,label:x.code,sub:x.name+' (Sub)'}))];}
+const AC_ITEM_FN={tag:acItems_tag,txptag:acItems_txptag,faNo:acItems_faNo,desc:acItems_desc,owner:acItems_owner,cc:acItems_cc,main:acItems_main,sub:acItems_sub,site:acItems_site,serial:acItems_serial,rq:acItems_rq,appr:acItems_appr,pc:acItems_pc,pfxcat:acItems_pfxcat,accall:acItems_accall};
+const AC_PANEL_MINW={desc:420,tag:300,txptag:340};
+let acPanelEl=null,acCurInput=null,acHlIdx=-1,acCurItems=[];
+function acCreatePanel(){if(acPanelEl)return acPanelEl;acPanelEl=document.createElement('div');acPanelEl.className='ac-panel';document.body.appendChild(acPanelEl);
+  acPanelEl.addEventListener('mousedown',e=>{const row=e.target.closest('.ac-row');if(!row)return;e.preventDefault();acPick(+row.dataset.i);});
+  return acPanelEl;}
+function acPosition(input){const r=input.getBoundingClientRect();const kind=input.dataset.ac;const minW=AC_PANEL_MINW[kind]||220;
+  const w=Math.max(r.width,minW);let left=r.left;
+  if(left+w>window.innerWidth-8)left=Math.max(8,window.innerWidth-8-w);
+  acPanelEl.style.left=left+'px';acPanelEl.style.top=(r.bottom+4)+'px';acPanelEl.style.width=w+'px';}
+function acRenderRows(){const q=(acCurInput.value||'').toLowerCase().trim();
+  let items=(AC_ITEM_FN[acCurInput.dataset.ac]||(()=>[]))();
+  if(q)items=items.filter(it=>String(it.label).toLowerCase().includes(q)||String(it.sub||'').toLowerCase().includes(q));
+  items=items.slice(0,8);acCurItems=items;acHlIdx=-1;
+  acPanelEl.innerHTML=items.length?items.map((it,i)=>'<div class="ac-row" data-i="'+i+'"><div class="ac-row-main"><div class="ac-row-title">'+it.label+'</div>'+(it.sub?'<div class="ac-row-sub">'+it.sub+'</div>':'')+'</div>'+(it.badgeHtml||'')+'</div>').join('')
+    :'<div class="ac-empty">ไม่พบรายการที่ตรงกัน</div>';}
+function acOpen(input){acCurInput=input;acCreatePanel();acPosition(input);acRenderRows();acPanelEl.classList.add('open');}
+function acClose(){if(acPanelEl)acPanelEl.classList.remove('open');acCurInput=null;acHlIdx=-1;}
+function acPick(idx){const it=acCurItems[idx];if(!it||!acCurInput)return;const input=acCurInput,kind=input.dataset.ac;
+  if(kind==='txptag'){txpToggle(it.id);input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));acRenderRows();return;}
+  input.value=it.id;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));acClose();}
+function acUpdateHl(){[...acPanelEl.querySelectorAll('.ac-row')].forEach((r,i)=>r.classList.toggle('hl',i===acHlIdx));
+  const hlRow=acPanelEl.querySelector('.ac-row.hl');if(hlRow)hlRow.scrollIntoView({block:'nearest'});}
+document.addEventListener('focus',e=>{if(e.target&&e.target.dataset&&e.target.dataset.ac&&AC_ITEM_FN[e.target.dataset.ac])acOpen(e.target);},true);
+document.addEventListener('input',e=>{if(e.target===acCurInput)acRenderRows();});
+document.addEventListener('keydown',e=>{if(!acCurInput||!acPanelEl||!acPanelEl.classList.contains('open'))return;
+  if(e.key==='ArrowDown'){e.preventDefault();acHlIdx=Math.min(acHlIdx+1,acCurItems.length-1);acUpdateHl();}
+  else if(e.key==='ArrowUp'){e.preventDefault();acHlIdx=Math.max(acHlIdx-1,0);acUpdateHl();}
+  else if(e.key==='Enter'){if(acHlIdx>=0){e.preventDefault();acPick(acHlIdx);}}
+  else if(e.key==='Escape'){acClose();}});
+document.addEventListener('mousedown',e=>{if(acCurInput&&e.target!==acCurInput&&!e.target.closest('.ac-panel'))acClose();});
+window.addEventListener('scroll',()=>{if(acCurInput)acPosition(acCurInput);},true);
+window.addEventListener('resize',()=>{if(acCurInput)acPosition(acCurInput);});
+
+fillAccountDatalists();syncThemeBtn();renderAll();initScrollHints();
 </script>
 </body>
 </html>
