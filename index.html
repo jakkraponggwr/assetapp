@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<!-- Asset_App.html — v2.10.0 (2026-07-16): Flow 7 (Get Requests Sync) wired up — syncRequestsFromSharePoint()
-     now maps the real field names confirmed from Power Automate test run (request_id, asset_tag, fa_number,
-     entity, request_type, detail_json, nbv_at_request, doa_level, requested_by, request_date, status,
-     approver, approval_comment, approve_date). Settings label no longer shows "ยังไม่ได้ build" warning. -->
+<!-- Asset_App.html — v2.10.1 (2026-07-17): Bugfix — renderApprovals() crashed (Cannot read properties
+     of undefined reading 'desc') when a synced request references an asset tag not found in S.assets
+     (e.g. leftover test records like DRON-10002/MOTC-10013 that were never real assets). Now shows a
+     "⚠ ไม่พบ asset" badge + fallback text instead of throwing. Root cause: clean up test records in
+     02_FA_Requests before production use (see pending list). -->
 <html lang="th">
 <head>
 <script>(function(){try{var t=localStorage.getItem('asset_platform_theme')||'dark';if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
@@ -4662,8 +4663,8 @@ function renderApprovals(){const pend=S.requests.filter(r=>r.status==='Pending'&
   document.getElementById('appr-list').innerHTML=pend.length?pend.map(r=>{const a=S.assets.find(x=>x.tag===r.tag);
     const chainTxt=(r.chain&&r.chain.length>1)?' <span class="text-muted" style="font-size:11px">(chain: '+r.chain.map(p=>p.name).join(' → ')+')</span>':'';
     const ackTxt=r.ack?'<div class="text-muted" style="font-size:11px;margin-top:4px">Ack: '+r.ack.deptHead+' → '+r.ack.assetMgmt+' → '+r.ack.controller+' → CFO ('+r.ack.cfo+')</div>':'';
-    return '<div class="req-card"><div class="req-main"><div class="req-title"><span class="mono" style="color:var(--text2)">'+r.id+'</span> <span class="badge b-pending">'+r.type+'</span> '+entBadge(r.entity)+' <span class="mono">'+r.tag+'</span>'+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+'</div>'
-    +'<div class="req-detail">'+a.desc+'<br>'+summaryOf(r)+'<br>NBV ฿'+fmt(r.nbv)+' · ขอโดย '+r.by+' · '+fmtDDMMYYYY(r.date)+'</div>'
+    return '<div class="req-card"><div class="req-main"><div class="req-title"><span class="mono" style="color:var(--text2)">'+r.id+'</span> <span class="badge b-pending">'+r.type+'</span> '+entBadge(r.entity)+' <span class="mono">'+r.tag+'</span>'+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+(a?'':' <span class="badge b-disposed" title="ไม่พบ asset นี้ใน master — อาจเป็น test data เก่า">⚠ ไม่พบ asset</span>')+'</div>'
+    +'<div class="req-detail">'+(a?a.desc:'<span class="text-muted">— (ไม่พบรายละเอียด asset ในระบบ — tag: '+r.tag+')</span>')+'<br>'+summaryOf(r)+'<br>NBV ฿'+fmt(r.nbv)+' · ขอโดย '+r.by+' · '+fmtDDMMYYYY(r.date)+'</div>'
     +'<div class="flow-rail"><span class="rail-step">Requested</span><span class="rail-arrow">→</span><span class="rail-step on">'+lvlBadge(r.level)+' '+r.approverRole+' · '+r.approverName+chainTxt+'</span><span class="rail-arrow">→</span><span class="rail-step">Applied</span></div>'+ackTxt+'</div>'
     +(CFG.flowSubmit
       ?'<div class="req-actions"><span class="badge b-pending" style="padding:6px 10px">⏳ รออนุมัติใน Teams — '+r.approverName+'</span></div></div>'
