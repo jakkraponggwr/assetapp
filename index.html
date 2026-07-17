@@ -1,24 +1,26 @@
 <!DOCTYPE html>
-<!-- Asset_App.html — v2.12.0 (2026-07-17): Branding update — renamed app to "BPNT Asset App" (page title +
-     sidebar logo text); logo mark icon changed from lightning bolt to a solar-panel grid icon, and the
-     accent gradient (used on the logo mark, active-nav indicator bar, and avatar chip) changed from
-     teal→amber to a mint-green→dark-green gradient.
-     Carried over from v2.11.9: removed legacy DOA matrix card from Settings (superseded by Flow 1's
-     real chain-walk routing); meaningful FA-Custodian fallback instead of a fake placeholder name.
-     Carried over from v2.11.8: entity switch outlined-pill colors, removed Entity config card, Main/Sub
-     account add-form, 10-row scroll + search on Cost center/Prefix catalog/Main-Sub account master.
-     Carried over from v2.11.7: stronger resting card/metric shadows.
-     Carried over from v2.11.6: approval badge red.
-     Carried over from v2.11.5: donut chart on Dashboard (live data, category → class → asset drill-down).
-     Carried over from v2.11.4: Description column reflow fix + width lock.
-     Carried over from v2.11.3: header style (bold + blue underline on active-sort column), Description
-     click-to-expand popup.
-     Carried over from v2.11.2: Main-Sub column filter, scroll-hint arrow on wide tables.
-     Carried over from v2.11.1: sidebar nav emoji + bold text.
+<!-- Asset_App.html — v2.12.4 (2026-07-17): CRITICAL BUGFIX — found via automated jsdom load test after
+     Jack reported the scroll shadow never appeared despite the code looking correct. Root cause:
+     renderTxnAssetOptions() (Batch transaction page) still referenced ovColValue, a function that was
+     deleted several versions ago when Register/Overview were merged and consolidated into a single
+     regColValue. This threw an uncaught ReferenceError every single time renderAll() ran — which
+     silently aborted renderAll() partway through on EVERY page load and EVERY page navigation, so:
+       (a) refreshScrollHints()/initScrollHints() (called right after/around renderTxnAssetOptions in
+           the same statement chain) never executed — this is why the v2.12.1–v2.12.3 scroll-shadow
+           feature never appeared for Jack no matter how many times the file was re-uploaded.
+       (b) The Batch transaction asset picker table itself likely appeared stale/unresponsive to
+           filters, since the function threw before it ever reached the code that renders the rows.
+     Fixed by changing that one reference to regColValue. Verified with a jsdom test harness that loads
+     the file and executes all scripts, confirming zero uncaught errors on load and on page navigation.
+     Carried over from v2.12.2/2.12.3: dark fade-shadow scroll indicators (left+right edges) on
+     Register and Batch transaction tables.
+     Carried over from v2.12.0: renamed app to "BPNT Asset App", solar-panel logo icon, mint→dark-green
+     accent gradient.
+     Carried over from v2.11.9: removed legacy DOA matrix card from Settings.
+     Carried over from v2.11.8: entity switch outlined-pill colors, Main/Sub account add-form, 10-row
+     scroll + search on Cost center/Prefix catalog/Main-Sub account master.
      Carried over from v2.11.0: Full visual redesign, floating dropdown autocomplete on every
-     search/filter input, merged "Asset overview" into "Asset register".
-     Carried over from v2.10.1: Bugfix — renderApprovals() crashed when a synced request references an
-     asset tag not found in S.assets. Now shows a "⚠ ไม่พบ asset" badge instead of throwing. -->
+     search/filter input, merged "Asset overview" into "Asset register". -->
 <html lang="th">
 <head>
 <script>(function(){try{var t=localStorage.getItem('asset_platform_theme')||'dark';if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
@@ -32,7 +34,7 @@
 --teal:#2fd4a4;--teal-dim:#0d2b22;--purple:#a78bfa;--purple-dim:#211840;
 --blue:#5b9dff;--blue-dim:#16233d;--amber:#f5a623;--amber-dim:#2e2108;
 --red:#f0605c;--red-dim:#2d1010;--green:#3ecf7a;--green-dim:#0f2d1e;
---accent-grad:linear-gradient(135deg,#6ee7c4,#0d7a5f);
+--accent-grad:linear-gradient(135deg,#22d3ee,#059669);
 --radius:9px;--radius-lg:14px;--ease:cubic-bezier(.2,.7,.3,1);
 --shadow:0 6px 20px -6px rgba(0,0,0,.5);--shadow-sm:0 4px 14px -2px rgba(0,0,0,.4),0 2px 5px rgba(0,0,0,.3);--shadow-md:0 10px 28px -6px rgba(0,0,0,.55),0 3px 8px rgba(0,0,0,.35)}
 [data-theme="light"]{--bg:#f3f4f7;--bg2:#ffffff;--bg3:#eef0f4;--card:#ffffff;--border:#e4e6ec;--border2:#d3d6de;
@@ -87,7 +89,7 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .ent-pill.active[data-e="BNGS"]{background:var(--teal-dim);color:var(--teal);font-weight:600;border-color:var(--teal)}
 .ent-pill.active[data-e="BPNT"]{background:var(--purple-dim);color:var(--purple);font-weight:600;border-color:var(--purple)}
 .topbar-user{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:9px;white-space:nowrap}
-.avatar{width:26px;height:26px;border-radius:50%;background:var(--accent-grad);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#12141a;flex-shrink:0}
+.avatar{width:26px;height:26px;border-radius:50%;background:#12141a;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
 .page{display:none;animation:fade .25s var(--ease)}
 .page.active{display:block}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -117,10 +119,10 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .metric-value{font-size:23px;font-weight:600;margin-top:5px;letter-spacing:-.5px;color:var(--text);font-variant-numeric:tabular-nums}
 .metric-sub{font-size:11px;color:var(--text3);margin-top:3px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);margin:0 28px 16px;overflow:hidden;position:relative}
-.scroll-hint{position:absolute;top:0;bottom:0;right:0;width:34px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .2s var(--ease);background:linear-gradient(to right, transparent, var(--card) 65%);z-index:8}
+.scroll-hint{position:absolute;top:0;bottom:0;right:0;width:14px;pointer-events:none;opacity:0;transition:opacity .2s var(--ease);background:linear-gradient(to left, rgba(0,0,0,.18), transparent);z-index:8}
 .scroll-hint.show{opacity:1}
-.scroll-hint svg{width:15px;height:15px;stroke:var(--text2);fill:none;stroke-width:2.2;animation:scrollnudge 1.4s ease-in-out infinite}
-@keyframes scrollnudge{0%,100%{transform:translateX(0)}50%{transform:translateX(3px)}}
+.scroll-hint-left{position:absolute;top:0;bottom:0;left:0;width:14px;pointer-events:none;opacity:0;transition:opacity .2s var(--ease);background:linear-gradient(to right, rgba(0,0,0,.18), transparent);z-index:8}
+.scroll-hint-left.show{opacity:1}
 .card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .card-title{font-size:13.5px;font-weight:600;letter-spacing:-.1px}
 .card-sub{font-size:11.5px;color:var(--text3)}
@@ -227,8 +229,8 @@ textarea{resize:vertical;min-height:60px}
 <div class="sidebar-scrim" id="sidebar-scrim" onclick="closeSidebar()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="logo">
-    <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 10h18M3 14h18M9 6v12M15 6v12"/></svg></div>
-    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.12.0 · BNGS + BPNT</div></div>
+    <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#12141a" stroke="#12141a" stroke-width="1" stroke-linejoin="round"/></svg></div>
+    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.12.10 · BNGS + BPNT</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Overview</div>
@@ -317,7 +319,7 @@ textarea{resize:vertical;min-height:60px}
     <th></th><th></th><th></th>
     <th class="th-filter"><input class="col-filter-input" id="reg-f-serial" data-ac="serial" oninput="renderRegister()" placeholder="🔍 serial" autocomplete="off"></th>
     <th></th><th></th><th></th><th></th>
-  </tr></thead><tbody id="reg-rows"></tbody></table></div><div class="scroll-hint" id="reg-scroll-hint"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div></div>
+  </tr></thead><tbody id="reg-rows"></tbody></table></div><div class="scroll-hint-left" id="reg-scroll-hint-left"></div><div class="scroll-hint" id="reg-scroll-hint"></div></div>
 </div>
 
 <div id="txnpage" class="page">
@@ -373,7 +375,7 @@ textarea{resize:vertical;min-height:60px}
             <th></th><th></th><th></th>
           </tr>
         </thead><tbody id="txp-rows"></tbody></table>
-      </div><div class="scroll-hint" id="txp-scroll-hint"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></div>
+      </div><div class="scroll-hint-left" id="txp-scroll-hint-left"></div><div class="scroll-hint" id="txp-scroll-hint"></div>
     </div>
   </div>
   <div class="card" id="txp-card" style="display:none">
@@ -4544,7 +4546,7 @@ function renderTxnAssetOptions(){const rowsEl=document.getElementById('txp-rows'
       (!fTag||a.tag.toLowerCase().includes(fTag))&&(!fFaNo||(a.faNo||'').toLowerCase().includes(fFaNo))&&(!fDesc||a.desc.toLowerCase().includes(fDesc))
       &&(!fOwner||a.owner.toLowerCase().includes(fOwner))&&(!fCc||(a.cc||'').toLowerCase().includes(fCc))&&(!fSite||a.site.toLowerCase().includes(fSite))&&(!fSerial||(a.serial||'').toLowerCase().includes(fSerial)))
     .filter(a=>!clsF||a.prefix===clsF)
-    .filter(a=>!eolF||(eolF==='eol'?isEndOfLife(a):!isEndOfLife(a))),txpSort,ovColValue);
+    .filter(a=>!eolF||(eolF==='eol'?isEndOfLife(a):!isEndOfLife(a))),txpSort,regColValue);
   paintSortHeaders('txp',txpSort,['tag','faNo','desc','class','entity','owner','cc','site','cost','nbv','status','date','life','eol']);
   const selEntity=txpSelected.size?S.assets.find(a=>a.tag===[...txpSelected][0]).entity:null;
   rowsEl.innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const locked=selEntity&&a.entity!==selEntity&&!txpSelected.has(a.tag);const eol=isEndOfLife(a);const eolD=eolDate(a);
@@ -4854,18 +4856,22 @@ function resetDemo(){if(!confirm('Reset ข้อมูลทั้งหมด�
 /* ═══════════ MASTER RENDER ═══════════ */
 function renderAll(){renderDash();renderRegister();renderApprovals();renderRequests();renderPhysical();renderReport();renderSettings();renderTxnAssetOptions();refreshScrollHints();}
 
-/* ═══════════ SCROLL HINT (→ arrow for tables that overflow horizontally) ═══════════ */
-const SCROLL_HINT_PAIRS=[['reg-rows','reg-scroll-hint'],['txp-rows','txp-scroll-hint']];
-function updateScrollHint(hintId,wrapEl){const hint=document.getElementById(hintId);if(!hint||!wrapEl)return;
-  const can=wrapEl.scrollWidth>wrapEl.clientWidth+4;const atEnd=wrapEl.scrollLeft>=wrapEl.scrollWidth-wrapEl.clientWidth-4;
-  hint.classList.toggle('show',can&&!atEnd);}
-function refreshScrollHints(){SCROLL_HINT_PAIRS.forEach(([rowsId,hintId])=>{const rows=document.getElementById(rowsId);if(!rows)return;
-  const wrap=rows.closest('.table-wrap');if(wrap)updateScrollHint(hintId,wrap);});}
-function initScrollHints(){SCROLL_HINT_PAIRS.forEach(([rowsId,hintId])=>{const rows=document.getElementById(rowsId);if(!rows)return;
+/* ═══════════ SCROLL HINT (edge shadows for tables that overflow horizontally) ═══════════ */
+const SCROLL_HINT_PAIRS=[['reg-rows','reg-scroll-hint','reg-scroll-hint-left'],['txp-rows','txp-scroll-hint','txp-scroll-hint-left']];
+function updateScrollHint(hintId,leftHintId,wrapEl){if(!wrapEl)return;
+  const hint=document.getElementById(hintId);const leftHint=leftHintId?document.getElementById(leftHintId):null;
+  const can=wrapEl.scrollWidth>wrapEl.clientWidth+4;
+  const atEnd=wrapEl.scrollLeft>=wrapEl.scrollWidth-wrapEl.clientWidth-4;
+  const atStart=wrapEl.scrollLeft<=4;
+  if(hint)hint.classList.toggle('show',can&&!atEnd);
+  if(leftHint)leftHint.classList.toggle('show',can&&!atStart);}
+function refreshScrollHints(){SCROLL_HINT_PAIRS.forEach(([rowsId,hintId,leftHintId])=>{const rows=document.getElementById(rowsId);if(!rows)return;
+  const wrap=rows.closest('.table-wrap');if(wrap)updateScrollHint(hintId,leftHintId,wrap);});}
+function initScrollHints(){SCROLL_HINT_PAIRS.forEach(([rowsId,hintId,leftHintId])=>{const rows=document.getElementById(rowsId);if(!rows)return;
   const wrap=rows.closest('.table-wrap');if(!wrap)return;
-  wrap.addEventListener('scroll',()=>updateScrollHint(hintId,wrap));
-  window.addEventListener('resize',()=>updateScrollHint(hintId,wrap));
-  updateScrollHint(hintId,wrap);});}
+  wrap.addEventListener('scroll',()=>updateScrollHint(hintId,leftHintId,wrap));
+  window.addEventListener('resize',()=>updateScrollHint(hintId,leftHintId,wrap));
+  updateScrollHint(hintId,leftHintId,wrap);});}
 /* ═══════════ FLOATING SEARCH DROPDOWN (autocomplete) ═══════════ */
 function acItems_tag(){return S.assets.filter(inScope).map(a=>({id:a.tag,label:a.tag,sub:a.desc,badgeHtml:statusBadge(a.status)}));}
 function acItems_txptag(){return S.assets.filter(inScope).filter(a=>a.status==='Active'||a.status==='In Stock').map(a=>({id:a.tag,label:a.tag,sub:a.desc+' · '+a.owner,badgeHtml:entBadge(a.entity)}));}
