@@ -1,4 +1,12 @@
 <!DOCTYPE html>
+<!-- Asset_App.html — v2.13.11 (2026-07-19): Approver resolution fixes (app-side) —
+     (1) getOwnerSupervisor(): replaced unsafe 5-char fuzzy matching with 2-pass matching
+         (exact name match first, then safe special-email fallback: full firstname + surname initial).
+         Fixes wrong approver display, e.g. Patcharapa_J's supervisor kittiphol_p@ was shown as
+         Kittichai_J ("kitti" prefix collision + array-order .find() returning fuzzy before exact).
+     (2) createRequest(): now injects the asset owner into detail (detail_json) for every request
+         type — single & batch — so Flow 1's Register branch can resolve varOwnerKey from
+         DetailJSON.owner directly instead of relying on the requester fallback. -->
 <!-- Asset_App.html — v2.13.9 (2026-07-18): Back-to-top redesigned + made global (with a real bugfix) —
      (1) Redesigned per Jack's reference image: circular button using the same green gradient as the
          logo mark, a subtle cyan ring glow, and a bold rounded chevron-up icon (dark, for contrast)
@@ -282,7 +290,7 @@ textarea{resize:vertical;min-height:60px}
 <aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#12141a" stroke="#12141a" stroke-width="1" stroke-linejoin="round"/></svg></div>
-    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.13.10 · BNGS + BPNT</div></div>
+    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.13.11 · BNGS + BPNT</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Overview</div>
@@ -4378,9 +4386,19 @@ function getOwnerSupervisor(ownerKey){
   const supEmail=emp.supervisorEmail.toLowerCase();
   // match by email prefix pattern (Firstname_L@domain → Firstname_L)
   const supName=supEmail.split('@')[0];
-  const found=S.employees.find(e=>e.name.toLowerCase()===supName.toLowerCase()||
-    (e.supervisorEmail||'').toLowerCase()!==supEmail&&
-    e.name.toLowerCase().replace('_','').startsWith(supName.toLowerCase().replace('_','').slice(0,5)));
+  /* v2.13.11 fix: 2-pass matching — exact match ก่อนเสมอ แล้วค่อย fallback แบบปลอดภัย
+     (ของเดิม fuzzy 5 ตัวอักษรจับผิดคน เช่น kittiphol_p → Kittichai_J เพราะ "kitti" ซ้ำกัน
+      และ .find() คืนคนแรกใน array ก่อนถึง exact match ตัวจริง) */
+  // Pass 1: exact match (strip ช่องว่างกันเคสชื่อมีเว้นวรรค เช่น Jun Hui_G ↔ junhui_g)
+  let found=S.employees.find(e=>e.name.toLowerCase().replace(/\s+/g,'')===supName.replace(/\s+/g,''));
+  // Pass 2: fallback เฉพาะอีเมลพิเศษ (เช่น phoorin_ch → Phoorin_C) — ชื่อหน้าตรง "ทั้งคำ" + อักษรแรกนามสกุลตรง
+  if(!found){
+    const parts=supName.replace(/\s+/g,'').split('_');const fn=parts[0]||'';const sn=parts[1]||'';
+    found=S.employees.find(e=>{
+      const ep=e.name.toLowerCase().replace(/\s+/g,'').split('_');const efn=ep[0]||'';const esn=ep[1]||'';
+      return fn&&efn===fn&&sn&&esn&&sn[0]===esn[0];
+    });
+  }
   return found||{name:supName,email:emp.supervisorEmail,role:'Supervisor of '+ownerKey};}
 function approverForRequest(type,ownerKey,nbv,dispType){
   // Register + Transfer + Return → supervisor of asset owner (logic เดิม ไม่เปลี่ยน)
@@ -4419,6 +4437,9 @@ function setEnt(e,el){ENT=e;document.querySelectorAll('.ent-pill').forEach(p=>p.
 
 /* ═══════════ REQUEST ENGINE ═══════════ */
 function createRequest(type,tag,detail,by){const a=S.assets.find(x=>x.tag===tag);const nbv=type==='Register'?a.cost:calcNBV(a).nbv;
+  /* v2.13.11: แนบ owner เข้า detail ทุกคำขอ (จุดกลางจุดเดียว ครอบคลุม single + batch)
+     → Flow 1 (Register branch) ใช้ DetailJSON.owner resolve หัวหน้าผู้อนุมัติได้ ไม่ต้องพึ่ง fallback */
+  if(detail&&!detail.owner&&a&&a.owner)detail.owner=a.owner;
   let level,approverName,approverRole,isSupRoute=false,chain=null,ack=null,committeeRequired=false;
   if(type==='Disposal'){
     const r=disposalApproval(a,detail.disposalJustification,detail.disposalMethod,detail.salePrice);
