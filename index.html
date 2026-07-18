@@ -1,24 +1,27 @@
 <!DOCTYPE html>
-<!-- Asset_App.html — v2.12.4 (2026-07-17): CRITICAL BUGFIX — found via automated jsdom load test after
-     Jack reported the scroll shadow never appeared despite the code looking correct. Root cause:
-     renderTxnAssetOptions() (Batch transaction page) still referenced ovColValue, a function that was
-     deleted several versions ago when Register/Overview were merged and consolidated into a single
-     regColValue. This threw an uncaught ReferenceError every single time renderAll() ran — which
-     silently aborted renderAll() partway through on EVERY page load and EVERY page navigation, so:
-       (a) refreshScrollHints()/initScrollHints() (called right after/around renderTxnAssetOptions in
-           the same statement chain) never executed — this is why the v2.12.1–v2.12.3 scroll-shadow
-           feature never appeared for Jack no matter how many times the file was re-uploaded.
-       (b) The Batch transaction asset picker table itself likely appeared stale/unresponsive to
-           filters, since the function threw before it ever reached the code that renders the rows.
-     Fixed by changing that one reference to regColValue. Verified with a jsdom test harness that loads
-     the file and executes all scripts, confirming zero uncaught errors on load and on page navigation.
-     Carried over from v2.12.2/2.12.3: dark fade-shadow scroll indicators (left+right edges) on
-     Register and Batch transaction tables.
-     Carried over from v2.12.0: renamed app to "BPNT Asset App", solar-panel logo icon, mint→dark-green
-     accent gradient.
-     Carried over from v2.11.9: removed legacy DOA matrix card from Settings.
-     Carried over from v2.11.8: entity switch outlined-pill colors, Main/Sub account add-form, 10-row
-     scroll + search on Cost center/Prefix catalog/Main-Sub account master.
+<!-- Asset_App.html — v2.13.9 (2026-07-18): Back-to-top redesigned + made global (with a real bugfix) —
+     (1) Redesigned per Jack's reference image: circular button using the same green gradient as the
+         logo mark, a subtle cyan ring glow, and a bold rounded chevron-up icon (dark, for contrast)
+         instead of a plain "↑" text arrow.
+     (2) Now appears on EVERY page (not just Register) whenever the page is scrolled down more than
+         400px — single global button, fixed bottom-right, scrolls smoothly to top on click.
+     (3) Caught a real bug while testing this with the jsdom harness: the button was originally placed
+         at the very end of <body>, AFTER the closing </script> tag that calls initBackToTop(). Since
+         the script runs before the parser reaches that point, document.getElementById() returned null
+         at call time and the whole init silently no-opped — the button would have never worked on any
+         page, including Register, despite looking correct in the HTML. Fixed by moving the button
+         element to near the top of <body> (right after the sidebar-scrim), well before the script that
+         wires it up. Re-tested across Dashboard/Register/Requests/Settings — shows/hides correctly on
+         every page, zero uncaught errors.
+     Carried over from v2.13.8: split BNGS/BPNT donuts on Dashboard; drill-down asset rows open the
+     Register detail drawer.
+     Carried over from v2.13.7: Entity/Owner/Site searchable in "Register new asset".
+     Carried over from v2.13.6: Request log detail drawer (shared step-tracker with Approvals).
+     Carried over from v2.13.0–v2.13.5: Dashboard search/notifications/sparklines/Quick actions;
+     Register detail drawer; Batch transaction floating action bar; Approvals split panel; Request log
+     Table/Timeline toggle.
+     Carried over from v2.12.4–v2.12.10: critical ovColValue bugfix, two-sided scroll-shadow indicator,
+     final logo/avatar styling.
      Carried over from v2.11.0: Full visual redesign, floating dropdown autocomplete on every
      search/filter input, merged "Asset overview" into "Asset register". -->
 <html lang="th">
@@ -108,14 +111,39 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .btn-red{background:var(--red-dim);border-color:rgba(240,82,82,.35);color:var(--red)}
 .btn-sm{padding:3px 9px;font-size:12px;border-radius:6px}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:20px 28px}
-.metric{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:var(--radius-lg);padding:15px 17px}
+.metric{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:var(--radius-lg);padding:15px 17px;position:relative}
+.metric-spark{position:absolute;top:14px;right:14px;opacity:.85}
+.qa-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 10px;border-radius:var(--radius-lg);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s var(--ease)}
+.qa-tile:hover{border-color:var(--blue);background:var(--blue-dim);color:var(--blue);transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+.qa-icon{font-size:22px}
+.drawer-overlay{position:fixed;inset:0;background:rgba(6,7,10,.5);backdrop-filter:blur(2px);z-index:150;display:none}
+.drawer-overlay.open{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:92vw;background:var(--bg2);border-left:1px solid var(--border2);box-shadow:var(--shadow-md);z-index:151;transform:translateX(100%);transition:transform .25s var(--ease);display:flex;flex-direction:column}
+.drawer.open{transform:translateX(0)}
+.drawer-header{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.drawer-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 20px;gap:4px}
+.drawer-tab{padding:10px 12px;font-size:12.5px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s var(--ease),border-color .15s var(--ease)}
+.drawer-tab:hover{color:var(--text)}
+.drawer-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.drawer-body{flex:1;overflow-y:auto;padding:18px 20px}
+.drawer-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+.drawer-field{margin-bottom:14px}
+.drawer-field label{display:block;font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;font-weight:600}
+.drawer-field .val{font-size:13.5px;color:var(--text)}
+.floating-bar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:20px;box-shadow:var(--shadow-md);padding:18px 27px;display:flex;align-items:center;gap:24px;z-index:60;animation:floatIn .2s var(--ease)}
+.backtotop-btn{position:fixed;right:28px;bottom:28px;width:42px;height:42px;border-radius:50%;padding:0;display:none;align-items:center;justify-content:center;cursor:pointer;border:none;z-index:59;background:var(--accent-grad);box-shadow:var(--shadow-md),0 0 0 3px rgba(34,211,238,.3);transition:transform .15s var(--ease)}
+.backtotop-btn:hover{transform:translateY(-2px) scale(1.04)}
+.backtotop-btn svg{width:19px;height:19px}
+.floating-bar #txp-floating-count{font-size:16px}
+.floating-bar .btn{padding:10px 18px;font-size:14.5px;border-radius:11px}
+@keyframes floatIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .metric.m-blue{border-left-color:var(--blue)}
 .metric.m-green{border-left-color:var(--green)}
 .metric.m-amber{border-left-color:var(--amber)}
 .metric.m-red{border-left-color:var(--red)}
 .metric.m-purple{border-left-color:var(--purple)}
 .metric.m-teal{border-left-color:var(--teal)}
-.metric-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.metric-label{font-size:12.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px}
 .metric-value{font-size:23px;font-weight:600;margin-top:5px;letter-spacing:-.5px;color:var(--text);font-variant-numeric:tabular-nums}
 .metric-sub{font-size:11px;color:var(--text3);margin-top:3px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);margin:0 28px 16px;overflow:hidden;position:relative}
@@ -201,7 +229,27 @@ textarea{resize:vertical;min-height:60px}
 .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 28px 20px}
 .doa-row{display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;padding:9px 14px;align-items:center;border-bottom:1px solid var(--border);font-size:12.5px}
 .hint{font-size:11px;color:var(--text3);padding:10px 18px;line-height:1.7}
-@media(max-width:860px){.settings-grid{grid-template-columns:1fr}.modal-body{grid-template-columns:1fr}}
+@media(max-width:860px){.settings-grid{grid-template-columns:1fr}.modal-body{grid-template-columns:1fr}.appr-split{flex-direction:column}.appr-split>.card{flex:1 1 auto!important;max-height:none!important}}
+.appr-list-row{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s var(--ease)}
+.appr-list-row:hover{background:var(--bg3)}
+.appr-list-row.active{background:var(--blue-dim);border-left:3px solid var(--blue)}
+.step-tracker{display:flex;align-items:flex-start;gap:0;margin:18px 0}
+.step-node{display:flex;flex-direction:column;align-items:center;text-align:center;flex:0 0 auto;width:110px}
+.step-circle{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;background:var(--bg3);border:2px solid var(--border2);color:var(--text3);flex-shrink:0}
+.step-node.done .step-circle{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.step-node.active .step-circle{background:var(--amber-dim);border-color:var(--amber);color:var(--amber)}
+.step-node.rejected .step-circle{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.step-label{font-size:11px;color:var(--text3);margin-top:7px;line-height:1.4}
+.step-label b{color:var(--text);font-weight:600}
+.step-line{flex:1;height:2px;background:var(--border2);margin-top:16px;min-width:16px}
+.timeline-group-title{font-size:11.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin:22px 0 12px;padding-left:32px}
+.timeline-group-title:first-child{margin-top:0}
+.timeline-item{position:relative;padding:0 0 18px 32px}
+.timeline-item::before{content:'';position:absolute;left:8px;top:20px;bottom:-2px;width:2px;background:var(--border2)}
+.timeline-item:last-child::before{display:none}
+.timeline-dot{position:absolute;left:1px;top:2px;width:15px;height:15px;border-radius:50%;border:3px solid var(--bg2)}
+.timeline-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;transition:border-color .15s var(--ease)}
+.timeline-card:hover{border-color:var(--border2)}
 .ac-panel{position:fixed;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:500;max-height:280px;overflow-y:auto;display:none}
 .ac-panel.open{display:block}
 .ac-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;cursor:pointer;transition:background .1s var(--ease)}
@@ -221,16 +269,20 @@ textarea{resize:vertical;min-height:60px}
   .card{margin-left:16px;margin-right:16px}
   .page-header,.toolbar,.metrics,.req-card{padding-left:16px;padding-right:16px}
   .topbar{padding:12px 16px}
+  .topbar-search-wrap{display:none}
 }
 </style>
 </head>
 <body>
 <div class="shell">
 <div class="sidebar-scrim" id="sidebar-scrim" onclick="closeSidebar()"></div>
+<button class="backtotop-btn" id="backtotop-btn" onclick="document.querySelector('.main').scrollTo({top:0,behavior:'smooth'})" title="กลับขึ้นบนสุด">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M6 15l6-6 6 6" stroke="#0d1a15" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
 <aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#12141a" stroke="#12141a" stroke-width="1" stroke-linejoin="round"/></svg></div>
-    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.12.10 · BNGS + BPNT</div></div>
+    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.13.10 · BNGS + BPNT</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Overview</div>
@@ -258,8 +310,15 @@ textarea{resize:vertical;min-height:60px}
       <button class="ent-pill" data-e="BNGS" onclick="setEnt('BNGS',this)">BNGS</button>
       <button class="ent-pill" data-e="BPNT" onclick="setEnt('BPNT',this)">BPNT</button>
     </div>
+    <div style="position:relative;width:280px" class="topbar-search-wrap">
+      <input id="global-search" data-ac="globalsearch" placeholder="🔍 ค้นหา asset, request..." style="width:100%" autocomplete="off">
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
+    <button class="btn btn-sm" style="position:relative;padding:7px 9px" onclick="showPage('approvals',document.querySelector('[data-page=approvals]'))" title="การแจ้งเตือน — คำขอรออนุมัติ">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span id="notif-badge" class="nav-badge" style="position:absolute;top:-3px;right:-3px;display:none;align-items:center;justify-content:center;min-width:16px;height:16px;font-size:9px;padding:0 4px">0</span>
+    </button>
     <div class="theme-toggle" onclick="toggleTheme()" title="สลับ Light / Dark mode">
       <span id="theme-sun">☀</span><span id="theme-moon">☾</span>
     </div>
@@ -272,7 +331,16 @@ textarea{resize:vertical;min-height:60px}
   <div class="header-actions"><button class="btn btn-sm" id="sync-btn" onclick="syncAssetsFromSharePoint()">🔄 Sync from SharePoint</button><button class="btn btn-primary" onclick="openAddAsset()">🆕 Register asset</button></div></div>
   <div class="metrics" id="dash-metrics"></div>
   <div class="card"><div class="card-header"><span class="card-title">By asset category</span><span class="card-sub" id="dash-class-sub"></span></div><div style="padding:16px 18px 18px" id="dash-class-chart"></div><div id="dash-cat-detail"></div></div>
-  <div class="card"><div class="card-header"><span class="card-title">NBV by entity</span><span class="card-sub">มูลค่าสุทธิตามบัญชี ณ ปัจจุบัน</span></div><div style="padding:16px 18px" id="dash-entity-split"></div></div>
+  <div class="settings-grid">
+    <div class="card" style="margin:0"><div class="card-header"><span class="card-title">NBV by entity</span><span class="card-sub">มูลค่าสุทธิตามบัญชี ณ ปัจจุบัน</span></div><div style="padding:16px 18px" id="dash-entity-split"></div></div>
+    <div class="card" style="margin:0"><div class="card-header"><span class="card-title">Quick actions</span></div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:16px 18px">
+      <button class="qa-tile" onclick="openAddAsset()"><span class="qa-icon">🆕</span>Register asset</button>
+      <button class="qa-tile" onclick="showPage('txnpage',document.querySelector('[data-page=txnpage]'))"><span class="qa-icon">🔁</span>Asset transaction</button>
+      <button class="qa-tile" onclick="showPage('physical',document.querySelector('[data-page=physical]'))"><span class="qa-icon">🧾</span>Physical check</button>
+      <button class="qa-tile" onclick="syncAssetsFromSharePoint()"><span class="qa-icon">🔄</span>Sync from SharePoint</button>
+    </div></div>
+  </div>
   <div class="card"><div class="card-header"><span class="card-title">Pending approvals</span><span class="card-sub">รอการอนุมัติตาม DOA</span></div><div class="table-wrap"><table><thead><tr><th>Request</th><th>Type</th><th>Asset</th><th>Entity</th><th class="text-right">NBV</th><th>DOA</th><th>Requested</th></tr></thead><tbody id="dash-pending"></tbody></table></div></div>
   <div class="card"><div class="card-header"><span class="card-title">Recent activity</span><span class="card-sub">audit trail ล่าสุด</span></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Asset</th><th>Action</th><th>Detail</th><th>By</th></tr></thead><tbody id="dash-log"></tbody></table></div></div>
 </div>
@@ -383,6 +451,15 @@ textarea{resize:vertical;min-height:60px}
     <div class="modal-body" id="txp-fields" style="padding:16px 18px"></div>
     <div class="modal-footer"><button class="btn btn-primary" id="txp-submit">📨 Submit for approval</button></div>
   </div>
+  <div class="floating-bar" id="txp-floating-bar" style="display:none">
+    <span id="txp-floating-count" style="font-size:13px;font-weight:600"></span>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm" onclick="txpQuickSelectType('Transfer')">⇄ Transfer</button>
+      <button class="btn btn-sm" onclick="txpQuickSelectType('Return')">⤺ Return</button>
+      <button class="btn btn-sm btn-red" onclick="txpQuickSelectType('Disposal')">✕ Disposal</button>
+      <button class="btn btn-sm" onclick="txpClearSelection()">🧹 Clear</button>
+    </div>
+  </div>
 </div>
 
 
@@ -400,15 +477,22 @@ textarea{resize:vertical;min-height:60px}
   <div class="header-actions"><button class="btn btn-sm" id="sync-req-btn" onclick="syncRequestsFromSharePoint()">🔄 Sync Requests</button></div></div>
   <div class="toolbar"><input id="appr-search" data-ac="appr" placeholder="ค้นหา request / tag / description..." style="width:260px" oninput="renderApprovals()" autocomplete="off"></div>
   <div class="hint" id="doa-summary"></div>
-  <div id="appr-list" style="margin-top:6px"></div>
+  <div class="appr-split" style="display:flex;gap:16px;padding:6px 28px 20px;align-items:flex-start">
+    <div class="card" style="margin:0;flex:0 0 320px;max-height:620px;overflow-y:auto" id="appr-list-panel"></div>
+    <div class="card" style="margin:0;flex:1;min-width:0;display:flex;flex-direction:column;max-height:620px" id="appr-detail-panel"></div>
+  </div>
 </div>
 
 <div id="requests" class="page">
   <div class="page-header"><div><div class="page-title">Requests log</div><div class="page-sub">ประวัติคำขอทั้งหมดทุกสถานะ</div></div>
   <div class="header-actions"><button class="btn btn-sm" onclick="clearRequestsFilters()">🧹 Clear filter</button><button class="btn btn-sm" onclick="syncRequestsFromSharePoint()">🔄 Sync Requests</button></div></div>
   <div class="toolbar"><input id="rq-search" data-ac="rq" placeholder="ค้นหา request / tag / approver..." style="width:230px" oninput="renderRequests()" autocomplete="off"><select id="rq-type" onchange="renderRequests()"><option value="">All types</option><option>Register</option><option>Transfer</option><option>Return</option><option>Disposal</option></select>
-  <select id="rq-status" onchange="renderRequests()"><option value="">All status</option><option>Pending</option><option>Approved</option><option>Rejected</option></select></div>
-  <div class="card" style="margin-top:14px"><div class="table-wrap"><table><thead><tr>
+  <select id="rq-status" onchange="renderRequests()"><option value="">All status</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
+  <div class="ent-switch" style="margin-left:auto">
+    <button class="ent-pill active" id="rq-view-table" onclick="setRqView('table')">📋 Table</button>
+    <button class="ent-pill" id="rq-view-timeline" onclick="setRqView('timeline')">🕒 Timeline</button>
+  </div></div>
+  <div class="card" id="rq-table-card" style="margin-top:14px"><div class="table-wrap"><table><thead><tr>
     <th class="th-sort" onclick="toggleSort(rqSort,'request',renderRequests)">Request<span id="rq-sort-request"></span></th>
     <th class="th-sort" onclick="toggleSort(rqSort,'type',renderRequests)">Type<span id="rq-sort-type"></span></th>
     <th class="th-sort" onclick="toggleSort(rqSort,'tag',renderRequests)">Asset<span id="rq-sort-tag"></span></th>
@@ -419,6 +503,7 @@ textarea{resize:vertical;min-height:60px}
     <th class="th-sort" onclick="toggleSort(rqSort,'status',renderRequests)">Status<span id="rq-sort-status"></span></th>
     <th>Approver</th>
   </tr></thead><tbody id="rq-rows"></tbody></table></div></div>
+  <div class="card" id="rq-timeline-card" style="margin-top:14px;display:none"><div style="padding:20px 24px" id="rq-timeline"></div></div>
 </div>
 
 <div id="report" class="page">
@@ -491,18 +576,18 @@ textarea{resize:vertical;min-height:60px}
 <div class="modal-overlay" id="modal-add"><div class="modal">
   <div class="modal-header">Register new asset<button class="btn btn-sm" onclick="closeModals()">✕</button></div>
   <div class="modal-body">
-    <div class="form-group"><label>Entity *</label><select id="a-entity" onchange="refreshTagPreview()"><option>BNGS</option><option>BPNT</option></select></div>
+    <div class="form-group"><label>Entity *</label><input id="a-entity" data-ac="entitypick" onchange="refreshTagPreview()" autocomplete="off"></div>
     <div class="form-group"><label>Serial no.</label><input id="a-serial" class="mono"></div>
     <div class="form-group"><label>FA No. (Oracle) — ถ้ามี</label><input id="a-fano" class="mono" placeholder="เช่น 100052876"></div>
     <div class="form-group form-full"><label>Description *</label><input id="a-desc" placeholder="เช่น Dell Latitude 5440 i7/16GB" oninput="autoDetectPrefix()"></div>
     <div class="form-group"><label>Asset class (prefix) — auto-detect จาก master</label><select id="a-prefix" onchange="onPrefixManualChange()"></select></div>
     <div class="form-group form-full" style="margin-top:-6px"><span class="card-sub" id="a-prefix-hint" style="font-size:11px"></span></div>
     <div class="form-group form-full"><label>Asset tag ที่จะได้รับ (auto-generate)</label><div class="tag-preview" id="a-tag-preview">—</div></div>
-    <div class="form-group"><label>Owner *</label><select id="a-owner" onchange="syncOwnerCC('a')"></select></div>
+    <div class="form-group"><label>Owner *</label><input id="a-owner" data-ac="owner" onchange="syncOwnerCC('a')" autocomplete="off"></div>
     <div class="form-group"><label>Cost center</label><input id="a-cc" data-ac="cc" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
     <div class="form-group"><label>Main account</label><input id="a-mainacc" data-ac="main" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
     <div class="form-group"><label>Sub account</label><input id="a-subacc" data-ac="sub" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
-    <div class="form-group"><label>Site</label><select id="a-site"></select></div>
+    <div class="form-group"><label>Site</label><input id="a-site" data-ac="site" autocomplete="off"></div>
     <div class="form-group"><label>In-service date *</label><input type="date" id="a-date"></div>
     <div class="form-group"><label>Cost (THB) *</label><input type="number" id="a-cost" oninput="refreshAddDOA()"></div>
     <div class="form-group"><label>Useful life (years)</label><input type="number" id="a-life" value="5"></div>
@@ -521,6 +606,39 @@ textarea{resize:vertical;min-height:60px}
   <div class="modal-header"><span id="desc-modal-title">Description</span><button class="btn btn-sm" onclick="closeModals()">✕</button></div>
   <div class="modal-body" style="display:block;font-size:13.5px;line-height:1.7" id="desc-modal-body"></div>
 </div></div>
+
+<div class="drawer-overlay" id="asset-drawer-overlay" onclick="closeAssetDrawer()"></div>
+<div class="drawer" id="asset-drawer">
+  <div class="drawer-header">
+    <div style="min-width:0">
+      <div class="mono" style="font-size:16px;font-weight:600" id="drw-tag"></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px" id="drw-class"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <span id="drw-status"></span>
+      <button class="btn btn-sm" onclick="closeAssetDrawer()">✕</button>
+    </div>
+  </div>
+  <div class="drawer-tabs">
+    <div class="drawer-tab active" data-tab="overview" onclick="switchDrawerTab('overview')">Overview</div>
+    <div class="drawer-tab" data-tab="details" onclick="switchDrawerTab('details')">Details</div>
+    <div class="drawer-tab" data-tab="history" onclick="switchDrawerTab('history')">History</div>
+  </div>
+  <div class="drawer-body" id="drw-body"></div>
+  <div class="drawer-footer" id="drw-actions"></div>
+</div>
+
+<div class="drawer-overlay" id="request-drawer-overlay" onclick="closeRequestDrawer()"></div>
+<div class="drawer" id="request-drawer">
+  <div class="drawer-header">
+    <div style="min-width:0">
+      <div class="mono" style="font-size:16px;font-weight:600" id="rqd-id"></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px" id="rqd-type"></div>
+    </div>
+    <button class="btn btn-sm" onclick="closeRequestDrawer()">✕</button>
+  </div>
+  <div id="rqd-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
+</div>
 
 <div class="modal-overlay" id="modal-editlife"><div class="modal">
   <div class="modal-header" id="el-title">Edit Useful Life / EOL<button class="btn btn-sm" onclick="closeModals()">✕</button></div>
@@ -4295,7 +4413,7 @@ function toggleTheme(){const next=currentTheme()==='light'?'dark':'light';if(nex
 function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebar-scrim').classList.add('show');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-scrim').classList.remove('show');}
 function showPage(id,el){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));if(el)el.classList.add('active');renderAll();closeSidebar();if(typeof acClose==='function')acClose();
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));if(el)el.classList.add('active');renderAll();closeSidebar();if(typeof acClose==='function')acClose();if(typeof closeAssetDrawer==='function')closeAssetDrawer();if(typeof closeRequestDrawer==='function')closeRequestDrawer();
   document.querySelector('.main').scrollTo({top:0,behavior:'smooth'});}
 function setEnt(e,el){ENT=e;document.querySelectorAll('.ent-pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');renderAll();}
 
@@ -4374,9 +4492,9 @@ function rebuildPrefixOptions(selVal){const ps=document.getElementById('a-prefix
   let html=S.prefixes.map(p=>'<option value="'+p.prefix+'">'+p.prefix+' — '+p.name+'</option>').join('');
   if(pendingNewPrefix)html+='<option value="__NEW__">'+pendingNewPrefix.code+' — (สร้างใหม่) '+pendingNewPrefix.name+'</option>';
   ps.innerHTML=html;if(selVal)ps.value=selVal;}
-function openAddAsset(){fillSelect('a-owner',S.employees.map(e=>e.name));fillSelect('a-site',SITES);
+function openAddAsset(){document.getElementById('a-owner').value=(S.employees[0]||{}).name||'';document.getElementById('a-site').value=SITES[0]||'';
   pendingNewPrefix=null;rebuildPrefixOptions();
-  if(ENT!=='ALL')document.getElementById('a-entity').value=ENT;
+  document.getElementById('a-entity').value=ENT!=='ALL'?ENT:'BNGS';
   document.getElementById('a-cc').value='';document.getElementById('a-mainacc').value='';document.getElementById('a-subacc').value='';document.getElementById('a-fano').value='';
   document.getElementById('a-date').value=today();document.getElementById('a-desc').value='';document.getElementById('a-prefix-hint').textContent='';
   syncOwnerCC('a');refreshTagPreview();refreshAddDOA();
@@ -4488,6 +4606,42 @@ function showFullDesc(tag){const a=S.assets.find(x=>x.tag===tag);if(!a)return;
   document.getElementById('modal-desc').classList.add('open');}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModals();}));
 
+/* ═══════════ ASSET DETAIL DRAWER (Register page) ═══════════ */
+let drwCurrentTag=null,drwCurrentTab='overview';
+function drwFields(pairs){return pairs.map(([label,val])=>'<div class="drawer-field"><label>'+label+'</label><div class="val">'+val+'</div></div>').join('');}
+function openAssetDrawer(tag){drwCurrentTag=tag;drwCurrentTab='overview';
+  document.querySelectorAll('.drawer-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='overview'));
+  renderDrawer();document.getElementById('asset-drawer').classList.add('open');document.getElementById('asset-drawer-overlay').classList.add('open');}
+function closeAssetDrawer(){document.getElementById('asset-drawer').classList.remove('open');document.getElementById('asset-drawer-overlay').classList.remove('open');drwCurrentTag=null;}
+let rqDrawerId=null;
+function openRequestDrawer(id){rqDrawerId=id;renderRequestDrawer();document.getElementById('request-drawer').classList.add('open');document.getElementById('request-drawer-overlay').classList.add('open');}
+function closeRequestDrawer(){document.getElementById('request-drawer').classList.remove('open');document.getElementById('request-drawer-overlay').classList.remove('open');rqDrawerId=null;}
+function renderRequestDrawer(){const r=S.requests.find(x=>x.id===rqDrawerId);const body=document.getElementById('rqd-body');if(!r||!body)return;
+  document.getElementById('rqd-id').textContent=r.id;
+  document.getElementById('rqd-type').textContent=r.type+' · '+r.tag;
+  body.innerHTML=buildRequestDetailBody(r)+buildRequestFooterHtml(r);}
+function switchDrawerTab(tab){drwCurrentTab=tab;document.querySelectorAll('.drawer-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));renderDrawer();}
+function renderDrawer(){const a=S.assets.find(x=>x.tag===drwCurrentTag);if(!a)return;
+  document.getElementById('drw-tag').textContent=a.tag;
+  document.getElementById('drw-class').textContent=classOf(a.prefix)+' · '+a.entity;
+  document.getElementById('drw-status').innerHTML=statusBadge(a.status);
+  const {nbv}=calcNBV(a);const eolD=eolDate(a);
+  let body='';
+  if(drwCurrentTab==='overview'){
+    body=drwFields([['Description',a.desc],['Asset class',a.prefix+' — '+classOf(a.prefix)],['FA number (Oracle)',a.faNo||'—'],['Owner',a.owner],['Cost center',a.cc+' — '+((S.costCenters.find(c=>c.code===a.cc)||{}).name||'')],['Site',a.site],['Purchase date',fmtDDMMYYYY(a.date)],['Purchase cost','฿'+fmt(a.cost)],['NBV','฿'+fmt(nbv)]]);
+  }else if(drwCurrentTab==='details'){
+    body=drwFields([['Entity',a.entity],['Serial number',a.serial||'—'],['Main account',a.mainAccount],['Sub account',a.subAccount||'—'],['Useful life',a.life+' ปี'],['End of life date',fmtDDMMYYYY(eolD)+' ('+eolSource(a)+')'],['Disposal type',a.disposalType||'—']]);
+  }else if(drwCurrentTab==='history'){
+    const reqs=S.requests.filter(r=>r.tag===a.tag).sort((x,y)=>new Date(y.date)-new Date(x.date));
+    body=reqs.length?reqs.map(r=>'<div style="padding:10px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-weight:600;font-size:12.5px">'+r.type+'</span>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved')+'</div><div style="font-size:11.5px;color:var(--text2);margin-top:4px;line-height:1.6">'+summaryOf(r)+'</div><div style="font-size:11px;color:var(--text3);margin-top:4px">'+fmtDDMMYYYY(r.date)+' · โดย '+r.by+(r.approver?' · อนุมัติโดย '+r.approver:'')+'</div></div>').join(''):'<div class="empty">ไม่มีประวัติ transaction สำหรับ asset นี้</div>';
+  }
+  document.getElementById('drw-body').innerHTML=body;
+  const can=a.status==='Active'||a.status==='In Stock';
+  document.getElementById('drw-actions').innerHTML=
+    (can?'<button class="btn btn-sm" onclick="closeAssetDrawer();openAction(\'Transfer\',\''+a.tag+'\')">⇄ Transfer</button><button class="btn btn-sm" onclick="closeAssetDrawer();openAction(\'Return\',\''+a.tag+'\')">⤺ Return</button><button class="btn btn-sm btn-red" onclick="closeAssetDrawer();openAction(\'Disposal\',\''+a.tag+'\')">✕ Disposal</button>':'')
+    +'<button class="btn btn-sm" onclick="closeAssetDrawer();openEditLife(\''+a.tag+'\')">✏️ Edit life/EOL</button>'
+    +'<button class="btn btn-sm" onclick="printLabelsFor([\''+a.tag+'\'])">🏷️ Print QR</button>';}
+
 /* ═══════════ MODAL: TRANSFER / RETURN / DISPOSAL (row action buttons) ═══════════ */
 function openAction(type,tag){
   document.getElementById('act-title').innerHTML=type+' · <span class="mono" style="color:var(--teal)">'+tag+'</span><button class="btn btn-sm" onclick="closeModals()">✕</button>';
@@ -4555,7 +4709,14 @@ function renderTxnAssetOptions(){const rowsEl=document.getElementById('txp-rows'
     +'<td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="min-width:340px;max-width:340px" onclick="event.stopPropagation();showFullDesc(\''+a.tag+'\')"><div class="desc-clamp">'+a.desc+'</div>'+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td class="text-muted">'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+'</td></tr>';}).join(''):'<tr><td colspan="16" class="empty">ไม่พบทรัพย์สิน</td></tr>';
   document.getElementById('txp-selcount').textContent=txpSelected.size?('เลือกแล้ว '+txpSelected.size+' รายการ ('+selEntity+') — เลือกได้เฉพาะ entity เดียวกันในชุดเดียว'):'ยังไม่ได้เลือกทรัพย์สิน · พบ '+list.length+' รายการตาม filter';
   document.getElementById('txp-print-btn').disabled=!txpSelected.size;
+  const fbar=document.getElementById('txp-floating-bar');
+  if(fbar){const onTxnPage=document.getElementById('txnpage')&&document.getElementById('txnpage').classList.contains('active');
+    fbar.style.display=(txpSelected.size&&onTxnPage)?'flex':'none';
+    document.getElementById('txp-floating-count').textContent='✓ เลือกแล้ว '+txpSelected.size+' รายการ'+(selEntity?' ('+selEntity+')':'');}
   txpBuildFields();}
+function txpQuickSelectType(type){document.getElementById('txp-type').value=type;txpBuildFields();
+  const card=document.getElementById('txp-card');if(card)card.scrollIntoView({behavior:'smooth',block:'start'});}
+function txpClearSelection(){txpSelected.clear();renderTxnAssetOptions();}
 function txpCheckRespOwnerDept(){
   const sel=document.getElementById('txp-b-respowner');const warnEl=document.getElementById('txp-respowner-warn');
   if(!sel||!warnEl)return;
@@ -4624,29 +4785,54 @@ function txpSubmitBatch(type,tags){let detail={};
   renderAll();toast('✓ สร้างคำขอ '+created.length+' รายการ — รออนุมัติ DOA');}
 
 /* ═══════════ RENDER: DASHBOARD ═══════════ */
+function sparklineSVG(values,color){if(!values||values.length<2)return'';
+  const w=64,h=22,pad=2;const max=Math.max(...values),min=Math.min(...values);const range=(max-min)||1;
+  const stepX=(w-pad*2)/(values.length-1);
+  const pts=values.map((v,i)=>[pad+i*stepX,h-pad-((v-min)/range)*(h-pad*2)]);
+  const path=pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const last=pts[pts.length-1];
+  return '<svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" style="overflow:visible"><path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="2.2" fill="'+color+'"/></svg>';}
+function monthEndsRecent(n){const arr=[];const now=new Date();
+  for(let i=n-1;i>=0;i--){arr.push(new Date(now.getFullYear(),now.getMonth()-i+1,0));}
+  arr[arr.length-1]=now;return arr;}
 function renderDash(){const list=S.assets.filter(inScope);
   const active=list.filter(a=>a.status==='Active'),stock=list.filter(a=>a.status==='In Stock');
   const pend=S.requests.filter(r=>r.status==='Pending'&&inScope(r));
   const nbvSum=e=>S.assets.filter(a=>a.entity===e&&a.status!=='Disposed'&&a.status!=='Rejected').reduce((s,a)=>s+calcNBV(a).nbv,0);
   const nbvAll=list.filter(a=>a.status!=='Disposed'&&a.status!=='Rejected').reduce((s,a)=>s+calcNBV(a).nbv,0);
   document.getElementById('dash-sub').textContent='Scope: '+(ENT==='ALL'?'BNGS + BPNT (consolidated)':ENT)+' · '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
+  const months=monthEndsRecent(6);
+  const assetsTrend=months.map(d=>list.filter(a=>a.status!=='Rejected'&&new Date(a.date)<=d&&!(a.status==='Disposed'&&a.disposedDate&&new Date(a.disposedDate)<=d)).length);
+  const nbvTrend=months.map(d=>list.filter(a=>a.status!=='Rejected'&&a.status!=='Disposed'&&new Date(a.date)<=d).reduce((s,a)=>s+calcNBV(a,d).nbv,0));
+  const reqTrend=months.map(d=>{const mStart=new Date(d.getFullYear(),d.getMonth(),1);return S.requests.filter(r=>inScope(r)&&new Date(r.date)>=mStart&&new Date(r.date)<=d).length;});
+  const yearStart=new Date(new Date().getFullYear(),0,1);
+  const dispTrend=months.map(d=>list.filter(a=>a.status==='Disposed'&&a.disposedDate&&new Date(a.disposedDate)>=yearStart&&new Date(a.disposedDate)<=d).length);
   document.getElementById('dash-metrics').innerHTML=
-    '<div class="metric m-blue"><div class="metric-label">📦 Total assets</div><div class="metric-value">'+list.filter(a=>a.status!=='Rejected').length+'</div><div class="metric-sub">'+active.length+' active · '+stock.length+' in stock</div></div>'
-   +'<div class="metric m-green"><div class="metric-label">💰 NBV total</div><div class="metric-value">฿'+fmt(nbvAll)+'</div><div class="metric-sub">มูลค่าตามบัญชีสุทธิ</div></div>'
-   +'<div class="metric m-amber"><div class="metric-label">⏳ Pending approvals</div><div class="metric-value" style="color:'+(pend.length?'var(--amber)':'var(--text)')+'">'+pend.length+'</div><div class="metric-sub">รอ DOA อนุมัติ</div></div>'
-   +'<div class="metric m-red"><div class="metric-label">🗑️ Disposed (YTD)</div><div class="metric-value">'+list.filter(a=>a.status==='Disposed'&&(a.disposedDate||'').startsWith('2026')).length+'</div><div class="metric-sub">Sale / Donation / ScrapRecycle / Loss</div></div>';
+    '<div class="metric m-blue"><div class="metric-spark">'+sparklineSVG(assetsTrend,'#5b9dff')+'</div><div class="metric-label">📦 Total assets</div><div class="metric-value">'+list.filter(a=>a.status!=='Rejected').length+'</div><div class="metric-sub">'+active.length+' active · '+stock.length+' in stock</div></div>'
+   +'<div class="metric m-green"><div class="metric-spark">'+sparklineSVG(nbvTrend,'#3ecf7a')+'</div><div class="metric-label">💰 NBV total</div><div class="metric-value">฿'+fmt(nbvAll)+'</div><div class="metric-sub">มูลค่าตามบัญชีสุทธิ</div></div>'
+   +'<div class="metric m-amber"><div class="metric-spark">'+sparklineSVG(reqTrend,'#f5a623')+'</div><div class="metric-label">⏳ Pending approvals</div><div class="metric-value" style="color:'+(pend.length?'var(--amber)':'var(--text)')+'">'+pend.length+'</div><div class="metric-sub">รอ DOA อนุมัติ · เทรนด์ = คำขอ/เดือน</div></div>'
+   +'<div class="metric m-red"><div class="metric-spark">'+sparklineSVG(dispTrend,'#f0605c')+'</div><div class="metric-label">🗑️ Disposed (YTD)</div><div class="metric-value">'+list.filter(a=>a.status==='Disposed'&&(a.disposedDate||'').startsWith('2026')).length+'</div><div class="metric-sub">Sale / Donation / ScrapRecycle / Loss</div></div>';
   const nG=nbvSum('BNGS'),nP=nbvSum('BPNT'),tot=nG+nP||1;
   document.getElementById('dash-entity-split').innerHTML=
     '<div class="split-bar"><div style="width:'+(nG/tot*100)+'%;background:var(--teal)"></div><div style="width:'+(nP/tot*100)+'%;background:var(--purple)"></div></div>'
    +'<div style="display:flex;gap:24px;margin-top:10px;font-size:12px;color:var(--text2)"><span><span class="badge b-bngs">BNGS</span> ฿'+fmt(nG)+' ('+S.assets.filter(a=>a.entity==='BNGS'&&a.status!=='Disposed'&&a.status!=='Rejected').length+' assets)</span><span><span class="badge b-bpnt">BPNT</span> ฿'+fmt(nP)+' ('+S.assets.filter(a=>a.entity==='BPNT'&&a.status!=='Disposed'&&a.status!=='Rejected').length+' assets)</span></div>';
   document.getElementById('dash-pending').innerHTML=pend.length?pend.map(r=>'<tr onclick="showPage(\'approvals\',document.querySelector(\'[data-page=approvals]\'))" style="cursor:pointer"><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+' '+r.approverName+'</td><td class="text-muted">'+fmtDDMMYYYY(r.date)+' · '+r.by+'</td></tr>').join(''):'<tr><td colspan="7" class="empty">ไม่มีคำขอค้างอนุมัติ</td></tr>';
   document.getElementById('dash-log').innerHTML=S.log.slice(0,8).map(l=>'<tr><td class="text-muted">'+fmtDDMMYYYY(l.date)+'</td><td class="mono">'+l.tag+'</td><td>'+l.action+'</td><td class="text-muted">'+l.note+'</td><td class="text-muted">'+l.by+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">—</td></tr>';
-  const liveNow=list.filter(a=>a.status!=='Disposed'&&a.status!=='Rejected');window._rpLiveAssets=liveNow;window._rpAsOf=new Date();
-  const byClassNow={};liveNow.forEach(a=>{const k=a.prefix;byClassNow[k]=byClassNow[k]||{q:0,c:0,n:0};const x=calcNBV(a);byClassNow[k].q++;byClassNow[k].c+=a.cost;byClassNow[k].n+=x.nbv;});
-  document.getElementById('dash-class-sub').textContent='Scope: '+(ENT==='ALL'?'BNGS+BPNT':ENT)+' · ปัจจุบัน';
-  const classRowsNow=Object.entries(byClassNow).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>({key:k,name:classOf(k),cost:v.c,nbv:v.n,qty:v.q}));
-  window._rpCatGroups=buildCatGroups(classRowsNow);
-  document.getElementById('dash-class-chart').innerHTML=renderCatDonut(window._rpCatGroups);
+  window._rpAsOf=new Date();
+  function buildEntityCatData(entity){const liveEnt=S.assets.filter(a=>a.entity===entity&&a.status!=='Disposed'&&a.status!=='Rejected');
+    const byClass={};liveEnt.forEach(a=>{const k=a.prefix;byClass[k]=byClass[k]||{q:0,c:0,n:0};const x=calcNBV(a);byClass[k].q++;byClass[k].c+=a.cost;byClass[k].n+=x.nbv;});
+    const classRows=Object.entries(byClass).sort((a,b)=>b[1].n-a[1].n).map(([k,v])=>({key:k,name:classOf(k),cost:v.c,nbv:v.n,qty:v.q}));
+    return {groups:buildCatGroups(classRows),live:liveEnt};}
+  window._rpEntityData={BNGS:buildEntityCatData('BNGS'),BPNT:buildEntityCatData('BPNT')};
+  document.getElementById('dash-class-sub').textContent=(ENT==='ALL'?'BNGS + BPNT (แยกโดนัทตาม entity)':'Scope: '+ENT)+' · ปัจจุบัน';
+  if(ENT==='ALL'){
+    document.getElementById('dash-class-chart').innerHTML='<div style="display:flex;gap:28px;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:320px"><div class="badge b-bngs" style="margin-bottom:10px">BNGS</div>'+renderCatDonut(window._rpEntityData.BNGS.groups,'BNGS')+'</div>'
+      +'<div style="flex:1;min-width:320px;border-left:1px solid var(--border);padding-left:28px"><div class="badge b-bpnt" style="margin-bottom:10px">BPNT</div>'+renderCatDonut(window._rpEntityData.BPNT.groups,'BPNT')+'</div>'
+      +'</div>';
+  }else{
+    document.getElementById('dash-class-chart').innerHTML=renderCatDonut(window._rpEntityData[ENT].groups,ENT);
+  }
   document.getElementById('dash-cat-detail').innerHTML='';}
 
 /* ═══════════ RENDER: REGISTER ═══════════ */
@@ -4669,14 +4855,15 @@ function renderRegister(){const rowsEl=document.getElementById('reg-rows');if(!r
   paintSortHeaders('reg',regSort,['tag','faNo','desc','class','entity','owner','cc','site','cost','nbv','status','date','life','eol']);
   document.getElementById('reg-sub').textContent=list.length+' assets (จากทั้งหมด '+all.length+') · Cost ฿'+fmt(list.reduce((s,a)=>s+a.cost,0))+' · NBV ฿'+fmt(list.filter(a=>a.status!=='Disposed').reduce((s,a)=>s+calcNBV(a).nbv,0));
   rowsEl.innerHTML=list.length?list.map(a=>{const {nbv}=calcNBV(a);const can=a.status==='Active'||a.status==='In Stock';const eol=isEndOfLife(a);const eolD=eolDate(a);
-    return '<tr><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="min-width:400px;max-width:400px" onclick="showFullDesc(\''+a.tag+'\')"><div class="desc-clamp">'+a.desc+'</div>'+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+' <span class="badge b-gray" style="font-size:8.5px;vertical-align:middle" title="'+(eolSource(a)==='Master'?'มาจาก master Estimated EOL':'คำนวณจาก In-service + Useful life')+'">'+eolSource(a)+'</span></td>'
-    +'<td style="white-space:nowrap"><button class="btn btn-sm" title="พิมพ์ป้าย Tag" onclick="printLabelsFor([\''+a.tag+'\'])">🏷️</button> <button class="btn btn-sm" title="แก้ไข Useful Life / EOL" onclick="openEditLife(\''+a.tag+'\')">✏️</button> '+(can?'<button class="btn btn-sm" title="Transfer" onclick="openAction(\'Transfer\',\''+a.tag+'\')">⇄</button> <button class="btn btn-sm" title="Return" onclick="openAction(\'Return\',\''+a.tag+'\')">⤺</button> <button class="btn btn-sm btn-red" title="Disposal" onclick="openAction(\'Disposal\',\''+a.tag+'\')">✕</button>':'')+'</td></tr>'}).join(''):'<tr><td colspan="17" class="empty">ไม่พบทรัพย์สินตาม filter ที่เลือก</td></tr>';}
+    return '<tr style="cursor:pointer" onclick="openAssetDrawer(\''+a.tag+'\')"><td class="mono">'+a.tag+'</td><td class="mono text-muted">'+(a.faNo||'—')+'</td><td style="min-width:400px;max-width:400px"><div class="desc-clamp">'+a.desc+'</div>'+(eol?' <span class="badge b-l2" style="font-size:9px">EOL</span>':'')+'</td><td class="mono text-muted">'+a.prefix+'</td><td>'+entBadge(a.entity)+'</td><td>'+a.owner+'</td><td class="mono text-muted">'+a.cc+'</td><td class="mono text-muted">'+a.mainAccount+(a.subAccount?'-'+a.subAccount:'')+'</td><td class="text-muted">'+a.site+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+(a.disposalType?' <span class="badge b-gray">'+a.disposalType+'</span>':'')+'</td><td class="mono text-muted">'+(a.serial||'—')+'</td><td class="mono text-muted">'+fmtDDMMYYYY(a.date)+'</td><td class="text-right">'+a.life+'</td><td class="'+(eol?'':'text-muted')+'" style="'+(eol?'color:var(--red)':'')+'">'+fmtDDMMYYYY(eolD)+' <span class="badge b-gray" style="font-size:8.5px;vertical-align:middle" title="'+(eolSource(a)==='Master'?'มาจาก master Estimated EOL':'คำนวณจาก In-service + Useful life')+'">'+eolSource(a)+'</span></td>'
+    +'<td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="btn btn-sm" title="พิมพ์ป้าย Tag" onclick="printLabelsFor([\''+a.tag+'\'])">🏷️</button> <button class="btn btn-sm" title="แก้ไข Useful Life / EOL" onclick="openEditLife(\''+a.tag+'\')">✏️</button> '+(can?'<button class="btn btn-sm" title="Transfer" onclick="openAction(\'Transfer\',\''+a.tag+'\')">⇄</button> <button class="btn btn-sm" title="Return" onclick="openAction(\'Return\',\''+a.tag+'\')">⤺</button> <button class="btn btn-sm btn-red" title="Disposal" onclick="openAction(\'Disposal\',\''+a.tag+'\')">✕</button>':'')+'</td></tr>'}).join(''):'<tr><td colspan="17" class="empty">ไม่พบทรัพย์สินตาม filter ที่เลือก</td></tr>';}
 function clearRegisterFilters(){
   ['reg-f-tag','reg-f-faNo','reg-f-desc','reg-f-owner','reg-f-cc','reg-f-mainsub','reg-f-site','reg-f-serial'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['reg-class','reg-status','reg-owner','reg-site','reg-eol'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   regSort={key:null,dir:1};renderRegister();toast('🧹 ล้าง filter ทั้งหมดแล้ว');}
 
 /* ═══════════ RENDER: APPROVALS & REQUESTS ═══════════ */
+let apprSelectedId=null;
 function renderApprovals(){const q=(document.getElementById('appr-search').value||'').toLowerCase().trim();
   const pend=S.requests.filter(r=>r.status==='Pending'&&inScope(r)).filter(r=>{if(!q)return true;const a=S.assets.find(x=>x.tag===r.tag);
     return r.id.toLowerCase().includes(q)||r.tag.toLowerCase().includes(q)||(a&&a.desc&&a.desc.toLowerCase().includes(q))||(r.by||'').toLowerCase().includes(q);});
@@ -4684,22 +4871,78 @@ function renderApprovals(){const q=(document.getElementById('appr-search').value
     +'DOA: <span style="color:var(--teal)">Register/Transfer/Return</span> → หัวหน้าของ asset owner (SUP) · <span style="color:var(--text)">Disposal</span> → chain-walk ตาม DOA_MATRIX (Sale/Donation/Write-off ตาม category+NBV) จนถึงคนที่มี authority พอ · <span style="color:var(--red)">Sale เกิน SVP limit</span> → Asset Disposal Committee → CEO';
   const badge=document.getElementById('appr-badge');const allPend=S.requests.filter(r=>r.status==='Pending').length;
   badge.style.display=allPend?'inline-block':'none';badge.textContent=allPend;
-  document.getElementById('appr-list').innerHTML=pend.length?pend.map(r=>{const a=S.assets.find(x=>x.tag===r.tag);
-    const chainTxt=(r.chain&&r.chain.length>1)?' <span class="text-muted" style="font-size:11px">(chain: '+r.chain.map(p=>p.name).join(' → ')+')</span>':'';
-    const ackTxt=r.ack?'<div class="text-muted" style="font-size:11px;margin-top:4px">Ack: '+r.ack.deptHead+' → '+r.ack.assetMgmt+' → '+r.ack.controller+' → CFO ('+r.ack.cfo+')</div>':'';
-    return '<div class="req-card"><div class="req-main"><div class="req-title"><span class="mono" style="color:var(--text2)">'+r.id+'</span> <span class="badge b-pending">'+r.type+'</span> '+entBadge(r.entity)+' <span class="mono">'+r.tag+'</span>'+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+(a?'':' <span class="badge b-disposed" title="ไม่พบ asset นี้ใน master — อาจเป็น test data เก่า">⚠ ไม่พบ asset</span>')+'</div>'
-    +'<div class="req-detail">'+(a?a.desc:'<span class="text-muted">— (ไม่พบรายละเอียด asset ในระบบ — tag: '+r.tag+')</span>')+'<br>'+summaryOf(r)+'<br>NBV ฿'+fmt(r.nbv)+' · ขอโดย '+r.by+' · '+fmtDDMMYYYY(r.date)+'</div>'
-    +'<div class="flow-rail"><span class="rail-step">Requested</span><span class="rail-arrow">→</span><span class="rail-step on">'+lvlBadge(r.level)+' '+r.approverRole+' · '+r.approverName+chainTxt+'</span><span class="rail-arrow">→</span><span class="rail-step">Applied</span></div>'+ackTxt+'</div>'
-    +(CFG.flowSubmit
-      ?'<div class="req-actions"><span class="badge b-pending" style="padding:6px 10px">⏳ รออนุมัติใน Teams — '+r.approverName+'</span></div></div>'
-      :'<div class="req-actions"><button class="btn btn-green" onclick="approveRequest(\''+r.id+'\')">✓ Approve</button><button class="btn btn-red" onclick="rejectRequest(\''+r.id+'\')">✕ Reject</button></div></div>')}).join('')
-    :'<div class="empty" style="padding:40px">ไม่มีคำขอรออนุมัติในขอบเขตนี้</div>';}
+  const notifBadge=document.getElementById('notif-badge');if(notifBadge){notifBadge.style.display=allPend?'flex':'none';notifBadge.textContent=allPend>9?'9+':allPend;}
+  if(!pend.find(r=>r.id===apprSelectedId))apprSelectedId=pend.length?pend[0].id:null;
+  document.getElementById('appr-list-panel').innerHTML=pend.length?pend.map(r=>{const a=S.assets.find(x=>x.tag===r.tag);
+    return '<div class="appr-list-row'+(r.id===apprSelectedId?' active':'')+'" onclick="selectApproval(\''+r.id+'\')">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span class="mono" style="font-size:12px;color:var(--text2)">'+r.id+'</span>'+lvlBadge(r.level)+'</div>'
+      +'<div style="font-size:12.5px;font-weight:600;margin-top:4px">'+r.type+' <span class="mono text-muted" style="font-weight:400">'+r.tag+'</span></div>'
+      +'<div class="text-muted" style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(a?a.desc:'⚠ ไม่พบ asset')+'</div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">'+entBadge(r.entity)+'<span class="mono text-muted" style="font-size:11px">฿'+fmt(r.nbv)+'</span></div>'
+      +'</div>';}).join(''):'<div class="empty" style="padding:36px 14px">ไม่มีคำขอรออนุมัติ</div>';
+  renderApprovalDetail();}
+function selectApproval(id){apprSelectedId=id;document.querySelectorAll('.appr-list-row').forEach(el=>el.classList.remove('active'));
+  renderApprovals();const panel=document.getElementById('appr-detail-panel');if(panel)panel.scrollTop=0;}
+function buildStepTracker(r){
+  const isPending=r.status==='Pending',isRejected=r.status==='Rejected';
+  const chainNames=(r.chain&&r.chain.length>1)?r.chain.map(p=>p.name).join(' → '):null;
+  const midClass=isRejected?'rejected':(isPending?'active':'done');
+  const midIcon=isRejected?'✕':(isPending?'⏳':'✓');
+  const lastClass=(!isPending&&!isRejected)?'done':'';
+  const lastIcon=(!isPending&&!isRejected)?'✓':'○';
+  return '<div class="step-tracker">'
+    +'<div class="step-node done"><div class="step-circle">✓</div><div class="step-label">Requester<br><b>'+r.by+'</b></div></div>'
+    +'<div class="step-line"></div>'
+    +'<div class="step-node '+midClass+'"><div class="step-circle">'+midIcon+'</div><div class="step-label">'+lvlBadge(r.level).replace(/<[^>]+>/g,'')+' — '+r.approverRole+'<br><b>'+r.approverName+'</b>'+(chainNames?'<br><span style="font-size:10px">(chain: '+chainNames+')</span>':'')+'</div></div>'
+    +'<div class="step-line"></div>'
+    +'<div class="step-node '+lastClass+'"><div class="step-circle">'+lastIcon+'</div><div class="step-label">Applied</div></div>'
+    +'</div>';}
+function buildRequestDetailBody(r){const a=S.assets.find(x=>x.tag===r.tag);
+  const ackHtml=r.ack?'<div class="drawer-field"><label>Acknowledgement chain</label><div class="val" style="font-size:12.5px">'+r.ack.deptHead+' → '+r.ack.assetMgmt+' → '+r.ack.controller+' → CFO ('+r.ack.cfo+')</div></div>':'';
+  return '<div style="padding:18px 20px;flex:1;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'
+    +'<div><span class="mono" style="color:var(--text2);font-size:12.5px">'+r.id+'</span> <span class="badge b-pending" style="margin-left:6px">'+r.type+'</span> '+entBadge(r.entity)+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+(a?'':' <span class="badge b-disposed">⚠ ไม่พบ asset</span>')+'</div>'
+    +'</div>'
+    +buildStepTracker(r)
+    +'<div style="border-top:1px solid var(--border);margin:4px 0 14px"></div>'
+    +drwFields([['Asset',(a?a.desc:'— ไม่พบ asset ในระบบ (tag: '+r.tag+')')],['รายละเอียดคำขอ',summaryOf(r)],['NBV','฿'+fmt(r.nbv)],['วันที่ขอ',fmtDDMMYYYY(r.date)]])
+    +ackHtml
+    +'</div>';}
+function buildRequestFooterHtml(r){
+  if(r.status==='Pending')return '<div class="drawer-footer"><span class="badge b-pending" style="padding:7px 12px">⏳ Pending — รออนุมัติที่ '+r.approverName+' ('+r.approverRole+')</span></div>';
+  if(r.status==='Approved')return '<div class="drawer-footer"><span class="badge b-active" style="padding:7px 12px">✓ Approved โดย '+(r.approver||r.approverName)+(r.approveDate?' · '+fmtDDMMYYYY(r.approveDate):'')+'</span></div>';
+  return '<div class="drawer-footer"><span class="badge b-rejected" style="padding:7px 12px">✕ Rejected โดย '+(r.approver||r.approverName)+(r.approveDate?' · '+fmtDDMMYYYY(r.approveDate):'')+'</span></div>';}
+function renderApprovalDetail(){const panel=document.getElementById('appr-detail-panel');if(!panel)return;
+  const r=S.requests.find(x=>x.id===apprSelectedId);
+  if(!r){panel.innerHTML='<div class="empty" style="padding:60px 20px">เลือกคำขอทางซ้ายเพื่อดูรายละเอียด</div>';return;}
+  panel.innerHTML=buildRequestDetailBody(r)+buildRequestFooterHtml(r);}
+let rqViewMode='table';
+function setRqView(mode){rqViewMode=mode;
+  document.getElementById('rq-view-table').classList.toggle('active',mode==='table');
+  document.getElementById('rq-view-timeline').classList.toggle('active',mode==='timeline');
+  document.getElementById('rq-table-card').style.display=mode==='table'?'block':'none';
+  document.getElementById('rq-timeline-card').style.display=mode==='timeline'?'block':'none';}
+function rqTypeColor(type){return type==='Register'?'var(--blue)':type==='Transfer'?'var(--purple)':type==='Return'?'var(--teal)':'var(--red)';}
+function rqTypeDim(type){return type==='Register'?'var(--blue-dim)':type==='Transfer'?'var(--purple-dim)':type==='Return'?'var(--teal-dim)':'var(--red-dim)';}
 function renderRequests(){const ft=document.getElementById('rq-type').value,fs=document.getElementById('rq-status').value,q=(document.getElementById('rq-search').value||'').toLowerCase().trim();
   const list=sortRows(S.requests.filter(inScope).filter(r=>(!ft||r.type===ft)&&(!fs||r.status===fs))
     .filter(r=>{if(!q)return true;const a=S.assets.find(x=>x.tag===r.tag);
       return r.id.toLowerCase().includes(q)||r.tag.toLowerCase().includes(q)||(r.approverName||'').toLowerCase().includes(q)||(r.by||'').toLowerCase().includes(q)||(a&&a.desc&&a.desc.toLowerCase().includes(q));}),rqSort,rqColValue);
   paintSortHeaders('rq',rqSort,['request','type','tag','entity','nbv','level','status']);
-  document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+fmtDDMMYYYY(r.approveDate):'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';}
+  document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr style="cursor:pointer" onclick="openRequestDrawer(\''+r.id+'\')"><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+fmtDDMMYYYY(r.approveDate):'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';
+  const byDate=sortRows(list,{key:'date',dir:-1},(r,k)=>new Date(r[k]).getTime());
+  const groups=[];byDate.forEach(r=>{const dObj=new Date(r.date);const key=isNaN(dObj)?'—':dObj.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
+    let g=groups.find(x=>x.key===key);if(!g){g={key,items:[]};groups.push(g);}g.items.push(r);});
+  document.getElementById('rq-timeline').innerHTML=groups.length?groups.map(g=>
+    '<div class="timeline-group-title">'+g.key+'</div>'
+    +g.items.map(r=>{const a=S.assets.find(x=>x.tag===r.tag);const color=rqTypeColor(r.type),dim=rqTypeDim(r.type);
+      return '<div class="timeline-item"><div class="timeline-dot" style="background:'+color+'"></div>'
+      +'<div class="timeline-card" style="cursor:pointer" onclick="openRequestDrawer(\''+r.id+'\')"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+      +'<span><span class="mono" style="font-size:11.5px;color:var(--text3)">'+r.id+'</span> <span class="badge" style="background:'+dim+';color:'+color+';margin-left:6px">'+r.type+'</span> <span class="mono" style="font-size:12.5px;margin-left:4px">'+r.tag+'</span></span>'
+      +statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved')
+      +'</div><div class="text-muted" style="font-size:12px;margin-top:5px">'+(a?a.desc:'⚠ ไม่พบ asset')+'</div>'
+      +'<div class="text-muted" style="font-size:11px;margin-top:5px">'+fmtDDMMYYYY(r.date)+' · ขอโดย '+r.by+(r.approver?' · ดำเนินการโดย '+r.approver:'')+'</div></div></div>';}).join('')
+  ).join(''):'<div class="empty" style="padding:36px">ไม่มีประวัติคำขอ</div>';}
 function clearRequestsFilters(){
   ['rq-type','rq-status','rq-search'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   rqSort={key:null,dir:1};renderRequests();toast('🧹 ล้าง filter ทั้งหมดแล้ว');}
@@ -4742,35 +4985,35 @@ function buildCatGroups(classRows){const top=classRows.slice(0,6);const rest=cla
   const groups=top.map((r,i)=>({key:r.key,name:r.name,cost:r.cost,nbv:r.nbv,qty:r.qty,color:CAT_COLORS[i],members:[r]}));
   if(rest.length){groups.push({key:'__other__',name:'Other ('+rest.length+' classes)',cost:rest.reduce((s,r)=>s+r.cost,0),nbv:rest.reduce((s,r)=>s+r.nbv,0),qty:rest.reduce((s,r)=>s+r.qty,0),color:'var(--text3)',members:rest});}
   return groups;}
-function renderCatDonut(groups){if(!groups.length)return'<div class="empty">—</div>';
+function renderCatDonut(groups,entityKey){if(!groups.length)return'<div class="empty">—</div>';
   const total=groups.reduce((s,g)=>s+g.nbv,0)||1;const size=180,strokeW=28,r=(size-strokeW)/2,c=2*Math.PI*r,cx=size/2,cy=size/2;
   let offset=0;
   const segs=groups.map(g=>{const dash=g.nbv/total*c;
-    const seg='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+g.color+'" stroke-width="'+strokeW+'" stroke-dasharray="'+dash+' '+(c-dash)+'" stroke-dashoffset="'+(-offset)+'" style="cursor:pointer;transition:opacity .15s" onclick="showCatDetail(\''+g.key+'\')"><title>'+g.name+'</title></circle>';
+    const seg='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+g.color+'" stroke-width="'+strokeW+'" stroke-dasharray="'+dash+' '+(c-dash)+'" stroke-dashoffset="'+(-offset)+'" style="cursor:pointer;transition:opacity .15s" onclick="showCatDetail(\''+entityKey+'\',\''+g.key+'\')"><title>'+g.name+'</title></circle>';
     offset+=dash;return seg;}).join('');
   const svg='<div style="position:relative;width:'+size+'px;height:'+size+'px;flex-shrink:0"><svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="transform:rotate(-90deg)">'+segs+'</svg>'
     +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none"><div style="font-size:11px;color:var(--text3)">Total NBV</div><div class="mono" style="font-size:14px;font-weight:600">฿'+fmt(total)+'</div></div></div>';
   const legend='<div style="flex:1;min-width:220px">'+groups.map(g=>
-    '<div onclick="showCatDetail(\''+g.key+'\')" style="display:flex;align-items:center;gap:9px;padding:7px 4px;cursor:pointer;border-radius:6px;transition:background .12s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'">'
+    '<div onclick="showCatDetail(\''+entityKey+'\',\''+g.key+'\')" style="display:flex;align-items:center;gap:9px;padding:7px 4px;cursor:pointer;border-radius:6px;transition:background .12s" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'">'
     +'<span style="width:11px;height:11px;border-radius:3px;background:'+g.color+';flex-shrink:0"></span>'
     +'<span style="flex:1;font-size:13px">'+g.name+'</span>'
     +'<span class="mono" style="font-size:12px;color:var(--text2)">'+(g.nbv/total*100).toFixed(1)+'%</span>'
     +'<span class="mono" style="font-size:12px;width:100px;text-align:right">฿'+fmt(g.nbv)+'</span></div>').join('')+'</div>';
   return '<div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">'+svg+legend+'</div>'
     +'<div class="hint" style="padding:8px 4px 0">คลิกที่วงหรือรายการ เพื่อดูรายละเอียดแยกตาม class</div>';}
-function showCatDetail(key){const groups=window._rpCatGroups||[];const g=groups.find(x=>x.key===key);const el=document.getElementById('dash-cat-detail');if(!g||!el)return;
-  el.innerHTML='<div style="border-top:1px solid var(--border);margin-top:8px"><div style="padding:12px 4px 8px;font-size:13px;font-weight:600">'+g.name+' — '+g.members.length+' class'+(g.members.length>1?'es':'')+'</div>'
+function showCatDetail(entityKey,key){const groups=(window._rpEntityData&&window._rpEntityData[entityKey]&&window._rpEntityData[entityKey].groups)||[];const g=groups.find(x=>x.key===key);const el=document.getElementById('dash-cat-detail');if(!g||!el)return;
+  el.innerHTML='<div style="border-top:1px solid var(--border);margin-top:8px"><div style="padding:12px 4px 8px;font-size:13px;font-weight:600">'+entBadge(entityKey)+' '+g.name+' — '+g.members.length+' class'+(g.members.length>1?'es':'')+'</div>'
     +'<table style="width:100%"><thead><tr><th>Class</th><th class="text-right">Qty</th><th class="text-right">Cost</th><th class="text-right">NBV</th></tr></thead><tbody>'
-    +g.members.map(m=>'<tr style="cursor:pointer" onclick="showClassDetail(\''+key+'\',\''+m.key+'\')" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'"><td>'+m.name+' <span class="text-muted" style="font-size:11px">→</span></td><td class="text-right">'+m.qty+'</td><td class="text-right">฿'+fmt(m.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(m.nbv)+'</td></tr>').join('')
+    +g.members.map(m=>'<tr style="cursor:pointer" onclick="showClassDetail(\''+entityKey+'\',\''+key+'\',\''+m.key+'\')" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'"><td>'+m.name+' <span class="text-muted" style="font-size:11px">→</span></td><td class="text-right">'+m.qty+'</td><td class="text-right">฿'+fmt(m.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(m.nbv)+'</td></tr>').join('')
     +'</tbody></table><div class="hint" style="padding:6px 4px 0">คลิกแถว class เพื่อดูรายการ asset แต่ละชิ้น</div></div>';}
-function showClassDetail(catKey,classKey){const live=window._rpLiveAssets||[];const asOf=window._rpAsOf||new Date();
+function showClassDetail(entityKey,catKey,classKey){const live=(window._rpEntityData&&window._rpEntityData[entityKey]&&window._rpEntityData[entityKey].live)||[];const asOf=window._rpAsOf||new Date();
   const list=live.filter(a=>a.prefix===classKey);const el=document.getElementById('dash-cat-detail');if(!el)return;
   el.innerHTML='<div style="border-top:1px solid var(--border);margin-top:8px">'
-    +'<div style="padding:12px 4px 4px;font-size:12px"><a href="javascript:void(0)" onclick="showCatDetail(\''+catKey+'\')" style="color:var(--blue);text-decoration:none">← กลับไป category</a></div>'
-    +'<div style="padding:2px 4px 8px;font-size:13px;font-weight:600">'+classOf(classKey)+' — '+list.length+' รายการ</div>'
+    +'<div style="padding:12px 4px 8px"><button class="btn btn-sm btn-primary" style="font-weight:700" onclick="showCatDetail(\''+entityKey+'\',\''+catKey+'\')">← กลับไป category</button></div>'
+    +'<div style="padding:2px 4px 8px;font-size:13px;font-weight:600">'+entBadge(entityKey)+' '+classOf(classKey)+' — '+list.length+' รายการ</div>'
     +'<table style="width:100%"><thead><tr><th>Tag</th><th>Description</th><th>Entity</th><th>Owner</th><th class="text-right">Cost</th><th class="text-right">NBV</th><th>Status</th></tr></thead><tbody>'
-    +(list.length?list.map(a=>{const {nbv}=calcNBV(a,asOf);return '<tr><td class="mono">'+a.tag+'</td><td class="text-muted" style="max-width:260px;white-space:normal;word-break:break-word">'+a.desc+'</td><td>'+entBadge(a.entity)+'</td><td class="text-muted">'+a.owner+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">—</td></tr>')
-    +'</tbody></table></div>';}
+    +(list.length?list.map(a=>{const {nbv}=calcNBV(a,asOf);return '<tr style="cursor:pointer" onclick="openAssetDrawer(\''+a.tag+'\')" onmouseover="this.style.background=\'var(--bg3)\'" onmouseout="this.style.background=\'none\'"><td class="mono">'+a.tag+'</td><td class="text-muted" style="max-width:260px;white-space:normal;word-break:break-word">'+a.desc+'</td><td>'+entBadge(a.entity)+'</td><td class="text-muted">'+a.owner+'</td><td class="text-right">฿'+fmt(a.cost)+'</td><td class="text-right" style="color:var(--green)">฿'+fmt(nbv)+'</td><td>'+statusBadge(a.status)+'</td></tr>';}).join(''):'<tr><td colspan="7" class="empty">—</td></tr>')
+    +'</tbody></table><div class="hint" style="padding:6px 4px 0">คลิกแถว asset เพื่อดูรายละเอียดเต็มแบบ Asset register</div></div>';}
 function renderReport(){const mv=document.getElementById('rp-month').value||new Date().toISOString().slice(0,7);
   document.getElementById('rp-month').value=mv;const asOf=new Date(mv+'-28');
   const list=S.assets.filter(inScope).filter(a=>a.status!=='Rejected'&&new Date(a.date)<=asOf);
@@ -4872,6 +5115,8 @@ function initScrollHints(){SCROLL_HINT_PAIRS.forEach(([rowsId,hintId,leftHintId]
   wrap.addEventListener('scroll',()=>updateScrollHint(hintId,leftHintId,wrap));
   window.addEventListener('resize',()=>updateScrollHint(hintId,leftHintId,wrap));
   updateScrollHint(hintId,leftHintId,wrap);});}
+function initBackToTop(){const main=document.querySelector('.main');const btn=document.getElementById('backtotop-btn');if(!main||!btn)return;
+  main.addEventListener('scroll',()=>{btn.style.display=main.scrollTop>400?'flex':'none';});}
 /* ═══════════ FLOATING SEARCH DROPDOWN (autocomplete) ═══════════ */
 function acItems_tag(){return S.assets.filter(inScope).map(a=>({id:a.tag,label:a.tag,sub:a.desc,badgeHtml:statusBadge(a.status)}));}
 function acItems_txptag(){return S.assets.filter(inScope).filter(a=>a.status==='Active'||a.status==='In Stock').map(a=>({id:a.tag,label:a.tag,sub:a.desc+' · '+a.owner,badgeHtml:entBadge(a.entity)}));}
@@ -4889,8 +5134,13 @@ function acItems_pc(){if(!curCheck)return[];return Object.keys(curCheck.items).m
   const v=curCheck.items[t];return {id:t,label:t,sub:a?a.desc:'',badgeHtml:v==='found'?'<span class="badge b-active">พบ</span>':v==='missing'?'<span class="badge b-disposed">ไม่พบ</span>':'<span class="badge b-pending">รอตรวจ</span>'};});}
 function acItems_pfxcat(){return S.prefixes.map(p=>({id:p.prefix,label:p.prefix,sub:p.name}));}
 function acItems_accall(){return [...S.mainAccounts.map(m=>({id:m.code,label:m.code,sub:m.name+' (Main)'})),...S.subAccounts.map(x=>({id:x.code,label:x.code,sub:x.name+' (Sub)'}))];}
-const AC_ITEM_FN={tag:acItems_tag,txptag:acItems_txptag,faNo:acItems_faNo,desc:acItems_desc,owner:acItems_owner,cc:acItems_cc,main:acItems_main,sub:acItems_sub,site:acItems_site,serial:acItems_serial,rq:acItems_rq,appr:acItems_appr,pc:acItems_pc,pfxcat:acItems_pfxcat,accall:acItems_accall};
-const AC_PANEL_MINW={desc:420,tag:300,txptag:340};
+function acItems_globalsearch(){
+  const assets=S.assets.filter(inScope).map(a=>({id:'A:'+a.tag,label:a.tag,sub:a.desc,badgeHtml:'<span class="badge b-gray">Asset</span>'}));
+  const reqs=S.requests.filter(inScope).map(r=>({id:'R:'+r.id,label:r.id,sub:r.type+' · '+r.tag,badgeHtml:'<span class="badge b-gray">Request</span>'}));
+  return [...assets,...reqs];}
+function acItems_entitypick(){return [{id:'BNGS',label:'BNGS'},{id:'BPNT',label:'BPNT'}];}
+const AC_ITEM_FN={tag:acItems_tag,txptag:acItems_txptag,faNo:acItems_faNo,desc:acItems_desc,owner:acItems_owner,cc:acItems_cc,main:acItems_main,sub:acItems_sub,site:acItems_site,serial:acItems_serial,rq:acItems_rq,appr:acItems_appr,pc:acItems_pc,pfxcat:acItems_pfxcat,accall:acItems_accall,globalsearch:acItems_globalsearch,entitypick:acItems_entitypick};
+const AC_PANEL_MINW={desc:420,tag:300,txptag:340,globalsearch:340};
 let acPanelEl=null,acCurInput=null,acHlIdx=-1,acCurItems=[];
 function acCreatePanel(){if(acPanelEl)return acPanelEl;acPanelEl=document.createElement('div');acPanelEl.className='ac-panel';document.body.appendChild(acPanelEl);
   acPanelEl.addEventListener('mousedown',e=>{const row=e.target.closest('.ac-row');if(!row)return;e.preventDefault();acPick(+row.dataset.i);});
@@ -4909,6 +5159,10 @@ function acOpen(input){acCurInput=input;acCreatePanel();acPosition(input);acRend
 function acClose(){if(acPanelEl)acPanelEl.classList.remove('open');acCurInput=null;acHlIdx=-1;}
 function acPick(idx){const it=acCurItems[idx];if(!it||!acCurInput)return;const input=acCurInput,kind=input.dataset.ac;
   if(kind==='txptag'){txpToggle(it.id);input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));acRenderRows();return;}
+  if(kind==='globalsearch'){const [type,realId]=[it.id.slice(0,1),it.id.slice(2)];input.value='';acClose();
+    if(type==='A'){showPage('register',document.querySelector('[data-page=register]'));const f=document.getElementById('reg-f-tag');if(f){f.value=realId;f.dispatchEvent(new Event('input',{bubbles:true}));}}
+    else{showPage('requests',document.querySelector('[data-page=requests]'));const f=document.getElementById('rq-search');if(f){f.value=realId;f.dispatchEvent(new Event('input',{bubbles:true}));}}
+    return;}
   input.value=it.id;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));acClose();}
 function acUpdateHl(){[...acPanelEl.querySelectorAll('.ac-row')].forEach((r,i)=>r.classList.toggle('hl',i===acHlIdx));
   const hlRow=acPanelEl.querySelector('.ac-row.hl');if(hlRow)hlRow.scrollIntoView({block:'nearest'});}
@@ -4923,7 +5177,8 @@ document.addEventListener('mousedown',e=>{if(acCurInput&&e.target!==acCurInput&&
 window.addEventListener('scroll',()=>{if(acCurInput)acPosition(acCurInput);},true);
 window.addEventListener('resize',()=>{if(acCurInput)acPosition(acCurInput);});
 
-fillAccountDatalists();syncThemeBtn();renderAll();initScrollHints();
+fillAccountDatalists();syncThemeBtn();renderAll();initScrollHints();initBackToTop();
 </script>
+
 </body>
 </html>
