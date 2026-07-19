@@ -1,4 +1,21 @@
 <!DOCTYPE html>
+<!-- Asset_App.html — v2.14.0 (2026-07-19): Batch requests → "1 batch = 1 request row = 1 approval flow" —
+     (1) createBatchRequest(): new unified function creating ONE 02_FA_Requests row referencing an array
+         of asset tags (detail.items), used by Transfer/Return/Disposal batch submission (txpSubmitBatch)
+         instead of the old N-separate-rows/N-separate-flow-runs approach. Single-item flows (createRequest,
+         submitAction, submitAddAsset) are UNCHANGED — this only replaces the batch code path, to avoid
+         regressing the Register/Transfer/Return/Disposal single-item flows tested end-to-end this session.
+     (2) NEW: Batch Register UI ("📦 Register แบบ Batch" button on Asset register page) — lets Jack register
+         multiple new assets under one shared Entity/Owner/Cost center/Site, each with its own Description/
+         Cost/Serial/FA No./Life, auto-detecting asset class prefix per row — submitted as a single batch
+         request (1 approval for the whole batch), matching Transfer/Return/Disposal's existing model.
+     (3) Rendering compatibility: asset drawer's request history and buildRequestDetailBody() now recognize
+         req.tags (array) / req.isBatch so a batch request shows up under every asset it covers, not just
+         the first tag, and its detail view lists all covered assets.
+     NOTE (app-only so far): Power Automate Flow 1 still needs matching changes — Disposal branch must
+     aggregate NBV server-side across detail.items via Apply to Each (instead of trusting the client's
+     pre-computed sum), and the post-approval Update-item steps (all 4 types) must loop over detail.items
+     instead of updating a single asset. Tracked as an in-progress Flow 1 change, not yet done. -->
 <!-- Asset_App.html — v2.13.11 (2026-07-19): Approver resolution fixes (app-side) —
      (1) getOwnerSupervisor(): replaced unsafe 5-char fuzzy matching with 2-pass matching
          (exact name match first, then safe special-email fallback: full firstname + surname initial).
@@ -290,7 +307,7 @@ textarea{resize:vertical;min-height:60px}
 <aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#12141a" stroke="#12141a" stroke-width="1" stroke-linejoin="round"/></svg></div>
-    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.13.11 · BNGS + BPNT</div></div>
+    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.14.0 · BNGS + BPNT</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Overview</div>
@@ -355,7 +372,7 @@ textarea{resize:vertical;min-height:60px}
 
 <div id="register" class="page">
   <div class="page-header"><div><div class="page-title">Asset register</div><div class="page-sub" id="reg-sub"></div></div>
-  <div class="header-actions"><button class="btn btn-sm" onclick="clearRegisterFilters()">🧹 Clear filter</button><button class="btn btn-sm" onclick="openFaNoBulk()">📋 Update FA No. (Bulk)</button><button class="btn btn-green" onclick="exportAssetsCSV()">📤 Export CSV</button><button class="btn btn-primary" onclick="openAddAsset()">🆕 Register asset</button></div></div>
+  <div class="header-actions"><button class="btn btn-sm" onclick="clearRegisterFilters()">🧹 Clear filter</button><button class="btn btn-sm" onclick="openFaNoBulk()">📋 Update FA No. (Bulk)</button><button class="btn btn-green" onclick="exportAssetsCSV()">📤 Export CSV</button><button class="btn btn-sm" onclick="openAddAssetBatch()">📦 Register แบบ Batch</button><button class="btn btn-primary" onclick="openAddAsset()">🆕 Register asset</button></div></div>
   <div class="toolbar">
     <select id="reg-class" onchange="renderRegister()"><option value="">ทุก class</option></select>
     <select id="reg-status" onchange="renderRegister()"><option value="">All status</option><option>Active</option><option>In Stock</option><option value="Pending">Pending (all)</option><option>Disposed</option><option>Rejected</option></select>
@@ -602,6 +619,30 @@ textarea{resize:vertical;min-height:60px}
     <div class="form-full doa-hint" id="a-doa-hint"></div>
   </div>
   <div class="modal-footer"><button class="btn" onclick="closeModals()">✕ Cancel</button><button class="btn btn-primary" onclick="submitAddAsset()">📨 Submit for approval</button></div>
+</div></div>
+
+<div class="modal-overlay" id="modal-add-batch"><div class="modal" style="max-width:920px">
+  <div class="modal-header">Register หลายรายการ (Batch) — 1 คำขอ 1 การอนุมัติ<button class="btn btn-sm" onclick="closeModals()">✕</button></div>
+  <div class="modal-body">
+    <div class="form-full doa-hint" style="color:var(--text2)">ทุกรายการใน batch นี้จะถูกส่งเป็น<strong> คำขออนุมัติเดียว</strong> (1 request) ไปยังหัวหน้าคนเดียวกัน — ใช้ Owner/Cost center/Site ร่วมกันทั้ง batch ด้านล่าง แล้วกรอกรายละเอียดเฉพาะของแต่ละ asset ในตาราง</div>
+    <div class="form-group"><label>Entity *</label><input id="ab-entity" data-ac="entitypick" autocomplete="off"></div>
+    <div class="form-group"><label>Owner *</label><input id="ab-owner" data-ac="owner" onchange="syncOwnerCC('ab')" autocomplete="off"></div>
+    <div class="form-group"><label>Cost center</label><input id="ab-cc" data-ac="cc" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
+    <div class="form-group"><label>Main account</label><input id="ab-mainacc" data-ac="main" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
+    <div class="form-group"><label>Sub account</label><input id="ab-subacc" data-ac="sub" placeholder="เลือกจาก master หรือพิมพ์เอง" autocomplete="off"></div>
+    <div class="form-group"><label>Site</label><input id="ab-site" data-ac="site" autocomplete="off"></div>
+    <div class="form-group"><label>In-service date *</label><input type="date" id="ab-date"></div>
+    <div class="form-full" style="margin-top:6px">
+      <div class="table-wrap" style="max-height:320px;overflow-y:auto">
+        <table><thead><tr><th style="min-width:260px">Description *</th><th>Prefix</th><th>Serial no.</th><th>FA No.</th><th class="text-right">Cost (THB) *</th><th class="text-right">Life (yr)</th><th></th></tr></thead>
+        <tbody id="ab-rows"></tbody></table>
+      </div>
+      <button class="btn btn-sm" style="margin-top:8px" onclick="addBatchRegisterRow()">+ Add row</button>
+      <span class="card-sub" id="ab-summary" style="margin-left:10px"></span>
+    </div>
+    <div class="form-full doa-hint" id="ab-doa-hint" style="margin-top:10px"></div>
+  </div>
+  <div class="modal-footer"><button class="btn" onclick="closeModals()">✕ Cancel</button><button class="btn btn-primary" onclick="submitAddAssetBatch()">📨 Submit batch for approval</button></div>
 </div></div>
 
 <div class="modal-overlay" id="modal-action"><div class="modal">
@@ -4472,6 +4513,55 @@ function createRequest(type,tag,detail,by){const a=S.assets.find(x=>x.tag===tag)
     }).then(ok=>{if(!ok)console.warn('PA Flow 1 did not respond for',req.id);});
   }
   return req;}
+/* v2.14.0: createBatchRequest — "1 batch = 1 request row = 1 approval flow".
+   Used by txpSubmitBatch (Transfer/Return/Disposal) and the new Batch Register UI.
+   Unlike createRequest() (single asset, untouched — still used by all tested single-item flows),
+   this creates ONE row referencing an array of asset tags via detail.items — Flow 1 (Power Automate)
+   is responsible for recognizing detail.isBatch and looping (Apply to Each) for NBV aggregation
+   (Disposal) and post-approval status updates (all types), instead of the app firing N separate
+   HTTP calls / N separate SharePoint rows / N separate flow runs like before. */
+function createBatchRequest(type,tags,detail,by){
+  const assets=tags.map(t=>S.assets.find(x=>x.tag===t)).filter(Boolean);
+  if(!assets.length)return null;
+  const items=assets.map(a=>({tag:a.tag,cost:a.cost,nbv:type==='Register'?a.cost:calcNBV(a).nbv}));
+  const totalNbv=items.reduce((s,it)=>s+(it.nbv||0),0);
+  // single owner/responsible-person reference drives the whole batch's approval routing
+  // (matches existing batch UI convention: one toOwner/respOwner field per batch, not per-item)
+  const ownerRef=detail.owner||detail.respOwner||(assets[0]&&assets[0].owner)||by||CENTRAL_OWNER;
+  detail=Object.assign({},detail,{isBatch:true,items,owner:ownerRef});
+  let level,approverName,approverRole,isSupRoute=false,chain=null,ack=null,committeeRequired=false;
+  if(type==='Disposal'){
+    const proxyAsset=Object.assign({},assets[0],{cost:totalNbv});
+    const r=disposalApproval(proxyAsset,detail.disposalJustification,detail.disposalMethod,detail.salePrice);
+    level=r.requiredLevel;chain=r.chain;ack=r.ack;committeeRequired=r.committeeRequired;
+    const last=chain[chain.length-1];approverName=last?last.name:'—';approverRole=last?(last.position||last.doaLevel||''):'';
+  }else{
+    const appr=approverForRequest(type,ownerRef,totalNbv,'');
+    level=appr.level;approverName=appr.name;approverRole=appr.role;isSupRoute=appr.isSupRoute;
+  }
+  S.reqCtr++;
+  const req={id:'RQ-'+String(S.reqCtr).padStart(4,'0'),type,entity:assets[0].entity,
+    tag:tags[0],tags:tags.slice(),isBatch:true,detail,nbv:totalNbv,
+    level,approverName,approverRole,isSupRoute,chain,ack,committeeRequired,
+    by:by||CENTRAL_OWNER,date:today(),status:'Pending',approver:'',approveDate:''};
+  S.requests.unshift(req);
+  if(type!=='Register')assets.forEach(a=>{a.status='Pending '+type;});
+  pushLog(tags.join(', '),type+' requested (batch ×'+tags.length+')','รอ approve '+req.level+' · '+req.approverName,req.by);
+  save();
+  if(CFG.flowSubmit){
+    sendToFlowURL(CFG.flowSubmit,{
+      request_id:req.id,asset_tag:tags[0],fa_number:tags[0],
+      entity:req.entity,request_type:req.type,
+      nbv_at_request:req.nbv,doa_level:req.level,
+      approval_chain:(req.chain||[]).map(p=>p.name),acknowledgement:req.ack,
+      committee_required:req.committeeRequired,
+      batch_group_id:req.id,batch_owner:ownerRef,
+      detail:req.detail,requested_by:req.by,
+      request_date:req.date,is_test:false
+    }).then(ok=>{if(!ok)console.warn('PA Flow 1 did not respond for',req.id);});
+  }
+  return req;
+}
 /* ── AUDIT INTEGRITY GUARD ──
    เมื่อเชื่อม Power Automate (CFG.flowSubmit ตั้งค่าแล้ว) การอนุมัติจริงต้องเกิดขึ้นที่ Teams
    เท่านั้น (ผูกกับ Azure AD identity + server-side timestamp ที่แก้ไขย้อนหลังไม่ได้)
@@ -4554,6 +4644,67 @@ function submitAddAsset(){let prefix=document.getElementById('a-prefix').value,d
   S.assets.unshift(a);createRequest('Register',tag,{desc});
   ['a-desc','a-serial','a-cost','a-subacc','a-fano'].forEach(i=>document.getElementById(i).value='');
   closeModals();renderAll();toast('✓ '+tag+' generated — ส่งขออนุมัติแล้ว');}
+
+/* ═══════════ BATCH REGISTER (v2.14.0) — multiple new assets, 1 request row, 1 approval ═══════════ */
+let abRowSeq=0;
+function openAddAssetBatch(){document.getElementById('ab-owner').value=(S.employees[0]||{}).name||'';document.getElementById('ab-site').value=SITES[0]||'';
+  document.getElementById('ab-entity').value=ENT!=='ALL'?ENT:'BNGS';
+  document.getElementById('ab-cc').value='';document.getElementById('ab-mainacc').value='';document.getElementById('ab-subacc').value='';
+  document.getElementById('ab-date').value=today();
+  document.getElementById('ab-rows').innerHTML='';abRowSeq=0;
+  addBatchRegisterRow();addBatchRegisterRow();
+  syncOwnerCC('ab');refreshBatchRegisterSummary();
+  document.getElementById('modal-add-batch').classList.add('open');}
+function addBatchRegisterRow(){const idx=abRowSeq++;
+  const tr=document.createElement('tr');tr.id='ab-row-'+idx;
+  tr.innerHTML='<td><input id="ab-desc-'+idx+'" placeholder="เช่น Dell Latitude 5440" oninput="onBatchRowDescInput('+idx+')" style="width:100%"></td>'
+    +'<td><input id="ab-prefix-'+idx+'" class="mono" style="width:70px" placeholder="auto"></td>'
+    +'<td><input id="ab-serial-'+idx+'" class="mono" style="width:110px"></td>'
+    +'<td><input id="ab-fano-'+idx+'" class="mono" style="width:110px"></td>'
+    +'<td><input type="number" id="ab-cost-'+idx+'" style="width:110px;text-align:right" oninput="refreshBatchRegisterSummary()"></td>'
+    +'<td><input type="number" id="ab-life-'+idx+'" value="5" style="width:60px;text-align:right"></td>'
+    +'<td><button class="btn btn-sm" onclick="removeBatchRegisterRow('+idx+')">✕</button></td>';
+  document.getElementById('ab-rows').appendChild(tr);refreshBatchRegisterSummary();}
+function removeBatchRegisterRow(idx){const row=document.getElementById('ab-row-'+idx);if(row)row.remove();
+  if(!document.getElementById('ab-rows').children.length)addBatchRegisterRow();
+  refreshBatchRegisterSummary();}
+function onBatchRowDescInput(idx){const desc=(document.getElementById('ab-desc-'+idx)||{}).value||'';
+  const pfxInput=document.getElementById('ab-prefix-'+idx);if(!pfxInput)return;
+  const m=matchPrefixFromText(desc);if(m)pfxInput.value=m.prefix;
+  refreshBatchRegisterSummary();}
+function refreshBatchRegisterSummary(){const rowsEl=document.getElementById('ab-rows');if(!rowsEl)return;
+  const rows=[...rowsEl.children];const n=rows.length;let total=0;
+  rows.forEach(tr=>{const idx=tr.id.replace('ab-row-','');total+=Number((document.getElementById('ab-cost-'+idx)||{}).value)||0;});
+  document.getElementById('ab-summary').textContent=n+' รายการ · รวม ฿'+fmt(total);
+  const owner=document.getElementById('ab-owner').value;
+  const appr=approverForRequest('Register',owner,total,'');
+  document.getElementById('ab-doa-hint').innerHTML='DOA: batch นี้ ('+n+' รายการ, รวม ฿'+fmt(total)+') จะถูกส่งให้ <strong>'+appr.level+' · '+appr.role+' ('+appr.name+')</strong> อนุมัติครั้งเดียว'+(appr.isSupRoute?' · <span style="color:var(--teal)">หัวหน้าของ '+owner+'</span>':'');}
+function submitAddAssetBatch(){const entity=document.getElementById('ab-entity').value,owner=document.getElementById('ab-owner').value,
+  cc=document.getElementById('ab-cc').value,mainAccount=document.getElementById('ab-mainacc').value,subAccount=document.getElementById('ab-subacc').value,
+  site=document.getElementById('ab-site').value,date=document.getElementById('ab-date').value;
+  if(!entity||!owner||!date){toast('กรุณากรอก Entity / Owner / In-service date','warn');return;}
+  const rows=[...document.getElementById('ab-rows').children];
+  if(!rows.length){toast('กรุณาเพิ่มอย่างน้อย 1 รายการ','warn');return;}
+  const drafts=[];
+  for(const tr of rows){const idx=tr.id.replace('ab-row-','');
+    const desc=(document.getElementById('ab-desc-'+idx)||{}).value.trim();
+    const cost=Number((document.getElementById('ab-cost-'+idx)||{}).value);
+    let prefix=(document.getElementById('ab-prefix-'+idx)||{}).value.trim().toUpperCase();
+    if(!desc||!cost){toast('กรุณากรอก Description และ Cost ให้ครบทุกแถว','warn');return;}
+    if(!prefix){const m=matchPrefixFromText(desc);prefix=m?m.prefix:slugPrefixFromText(desc);}
+    if(!S.prefixes.find(p=>p.prefix===prefix)){S.prefixes.push({prefix,name:desc.length>32?desc.slice(0,32)+'…':desc,cat:'',kw:''});S.counters[prefix]=10001;}
+    drafts.push({prefix,desc,cost,
+      serial:(document.getElementById('ab-serial-'+idx)||{}).value,
+      faNo:(document.getElementById('ab-fano-'+idx)||{}).value.trim(),
+      life:Number((document.getElementById('ab-life-'+idx)||{}).value)||5});}
+  const newTags=[];
+  drafts.forEach(d=>{const tag=nextTag(d.prefix);S.counters[d.prefix]=(S.counters[d.prefix]||10001)+1;
+    const a={tag,prefix:d.prefix,desc:d.desc,entity,owner,cc,mainAccount,subAccount,site,faNo:d.faNo,
+      cost:d.cost,date,life:d.life,status:'Pending Register',serial:d.serial,disposalType:'',disposedDate:'',returnReason:''};
+    S.assets.unshift(a);newTags.push(tag);});
+  const req=createBatchRequest('Register',newTags,{owner});
+  closeModals();renderAll();
+  toast(req?('✓ '+req.id+' created — batch '+newTags.length+' รายการ รออนุมัติ '+lvlLabel(req)):'⚠ เกิดข้อผิดพลาดในการสร้างคำขอ');}
 
 /* ═══════════ TRANSFER / RETURN / DISPOSAL — shared field builder ═══════════ */
 function actionFieldsHTML(type,tag,idp){const a=S.assets.find(x=>x.tag===tag);const {nbv}=calcNBV(a);
@@ -4653,7 +4804,7 @@ function renderDrawer(){const a=S.assets.find(x=>x.tag===drwCurrentTag);if(!a)re
   }else if(drwCurrentTab==='details'){
     body=drwFields([['Entity',a.entity],['Serial number',a.serial||'—'],['Main account',a.mainAccount],['Sub account',a.subAccount||'—'],['Useful life',a.life+' ปี'],['End of life date',fmtDDMMYYYY(eolD)+' ('+eolSource(a)+')'],['Disposal type',a.disposalType||'—']]);
   }else if(drwCurrentTab==='history'){
-    const reqs=S.requests.filter(r=>r.tag===a.tag).sort((x,y)=>new Date(y.date)-new Date(x.date));
+    const reqs=S.requests.filter(r=>(r.tags||[r.tag]).includes(a.tag)).sort((x,y)=>new Date(y.date)-new Date(x.date));
     body=reqs.length?reqs.map(r=>'<div style="padding:10px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-weight:600;font-size:12.5px">'+r.type+'</span>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved')+'</div><div style="font-size:11.5px;color:var(--text2);margin-top:4px;line-height:1.6">'+summaryOf(r)+'</div><div style="font-size:11px;color:var(--text3);margin-top:4px">'+fmtDDMMYYYY(r.date)+' · โดย '+r.by+(r.approver?' · อนุมัติโดย '+r.approver:'')+'</div></div>').join(''):'<div class="empty">ไม่มีประวัติ transaction สำหรับ asset นี้</div>';
   }
   document.getElementById('drw-body').innerHTML=body;
@@ -4801,9 +4952,9 @@ function txpSubmitBatch(type,tags){let detail={};
     if(anyLostBig&&!ref){toast('⚠️ มีรายการ NBV เกิน ฿5,000 ใน batch Lost — Memo/ใบแจ้งความควรมีเซ็นอนุมัติแนบนอกระบบ (ไม่บังคับกรอกในนี้)','warn');}
     detail={disposalJustification:just,disposalMethod:method,salePrice:price,techReportRef:ref,policeReportRef:ref,itDataWipeConfirmed:itwipe,note:document.getElementById('txp-b-note').value,batchGroupId:'BATCH-'+Date.now(),batchOwner:respOwner};
   }
-  const created=tags.map(t=>createRequest(type,t,Object.assign({},detail)));
+  const req=createBatchRequest(type,tags,detail);
   txpSelected.clear();document.getElementById('txp-type').value='';
-  renderAll();toast('✓ สร้างคำขอ '+created.length+' รายการ — รออนุมัติ DOA');}
+  renderAll();toast(req?('✓ '+req.id+' created — batch '+tags.length+' รายการ รออนุมัติ '+lvlLabel(req)):'⚠ เกิดข้อผิดพลาดในการสร้างคำขอ');}
 
 /* ═══════════ RENDER: DASHBOARD ═══════════ */
 function sparklineSVG(values,color){if(!values||values.length<2)return'';
@@ -4918,15 +5069,17 @@ function buildStepTracker(r){
     +'<div class="step-line"></div>'
     +'<div class="step-node '+lastClass+'"><div class="step-circle">'+lastIcon+'</div><div class="step-label">Applied</div></div>'
     +'</div>';}
-function buildRequestDetailBody(r){const a=S.assets.find(x=>x.tag===r.tag);
+function buildRequestDetailBody(r){const tags=r.tags||[r.tag];const a=S.assets.find(x=>x.tag===r.tag);
   const ackHtml=r.ack?'<div class="drawer-field"><label>Acknowledgement chain</label><div class="val" style="font-size:12.5px">'+r.ack.deptHead+' → '+r.ack.assetMgmt+' → '+r.ack.controller+' → CFO ('+r.ack.cfo+')</div></div>':'';
+  const batchHtml=r.isBatch?'<div class="drawer-field"><label>Assets ใน batch ('+tags.length+' รายการ)</label><div class="val" style="font-size:12.5px;line-height:1.7;max-height:180px;overflow-y:auto">'+tags.map(t=>{const at=S.assets.find(x=>x.tag===t);return '<span class="mono">'+t+'</span>'+(at?' — '+at.desc:' — <span style="color:var(--red)">⚠ ไม่พบ asset</span>');}).join('<br>')+'</div></div>':'';
   return '<div style="padding:18px 20px;flex:1;overflow-y:auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'
-    +'<div><span class="mono" style="color:var(--text2);font-size:12.5px">'+r.id+'</span> <span class="badge b-pending" style="margin-left:6px">'+r.type+'</span> '+entBadge(r.entity)+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+(a?'':' <span class="badge b-disposed">⚠ ไม่พบ asset</span>')+'</div>'
+    +'<div><span class="mono" style="color:var(--text2);font-size:12.5px">'+r.id+'</span> <span class="badge b-pending" style="margin-left:6px">'+r.type+'</span> '+entBadge(r.entity)+(r.isBatch?' <span class="badge b-active">Batch ×'+tags.length+'</span>':'')+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+(!r.isBatch&&!a?' <span class="badge b-disposed">⚠ ไม่พบ asset</span>':'')+'</div>'
     +'</div>'
     +buildStepTracker(r)
     +'<div style="border-top:1px solid var(--border);margin:4px 0 14px"></div>'
-    +drwFields([['Asset',(a?a.desc:'— ไม่พบ asset ในระบบ (tag: '+r.tag+')')],['รายละเอียดคำขอ',summaryOf(r)],['NBV','฿'+fmt(r.nbv)],['วันที่ขอ',fmtDDMMYYYY(r.date)]])
+    +(r.isBatch?batchHtml:drwFields([['Asset',(a?a.desc:'— ไม่พบ asset ในระบบ (tag: '+r.tag+')')]]))
+    +drwFields([['รายละเอียดคำขอ',summaryOf(r)],['NBV'+(r.isBatch?' รวม':''),'฿'+fmt(r.nbv)],['วันที่ขอ',fmtDDMMYYYY(r.date)]])
     +ackHtml
     +'</div>';}
 function buildRequestFooterHtml(r){
@@ -4950,7 +5103,7 @@ function renderRequests(){const ft=document.getElementById('rq-type').value,fs=d
     .filter(r=>{if(!q)return true;const a=S.assets.find(x=>x.tag===r.tag);
       return r.id.toLowerCase().includes(q)||r.tag.toLowerCase().includes(q)||(r.approverName||'').toLowerCase().includes(q)||(r.by||'').toLowerCase().includes(q)||(a&&a.desc&&a.desc.toLowerCase().includes(q));}),rqSort,rqColValue);
   paintSortHeaders('rq',rqSort,['request','type','tag','entity','nbv','level','status']);
-  document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr style="cursor:pointer" onclick="openRequestDrawer(\''+r.id+'\')"><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+fmtDDMMYYYY(r.approveDate):'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';
+  document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr style="cursor:pointer" onclick="openRequestDrawer(\''+r.id+'\')"><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+(r.isBatch?' <span class="text-muted" style="font-size:10.5px">+'+(r.tags.length-1)+'</span>':'')+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+fmtDDMMYYYY(r.approveDate):'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';
   const byDate=sortRows(list,{key:'date',dir:-1},(r,k)=>new Date(r[k]).getTime());
   const groups=[];byDate.forEach(r=>{const dObj=new Date(r.date);const key=isNaN(dObj)?'—':dObj.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
     let g=groups.find(x=>x.key===key);if(!g){g={key,items:[]};groups.push(g);}g.items.push(r);});
