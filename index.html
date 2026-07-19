@@ -1,4 +1,16 @@
 <!DOCTYPE html>
+<!-- Asset_App.html — v2.14.2 (2026-07-19): Dashboard NBV total robustness —
+     calcNBV() now treats a blank/invalid in-service date as "just registered, no depreciation yet"
+     (nbv = full cost) instead of returning NaN. Previously a single asset with a bad date silently
+     poisoned the ENTIRE dashboard NBV total and category %'s via Array.reduce (NaN + anything = NaN),
+     and fmt()'s `Number(n)||0` fallback masked it as a misleading "฿0" instead of surfacing the real
+     data problem (only "NaN%" in the category legend hinted at it). Root cause of any already-blank
+     dates in SharePoint (e.g. old test/leftover records) still needs manual cleanup — this fix only
+     stops ONE bad record from breaking totals for every OTHER asset in scope, and gives a sane number
+     instead of NaN going forward. Register's date field (single + batch) already defaults to today
+     and is required before submit, so freshly-registered assets shouldn't hit this path; a matching
+     Power Automate change (coalesce a server-side date default in the Intake Flow's Create item steps)
+     is the defense-in-depth companion to this fix. -->
 <!-- Asset_App.html — v2.14.1 (2026-07-19): Batch Register payload fix —
      createBatchRequest()'s detail.items[] now includes desc/prefix/serial/faNo/life per item when
      type==='Register' (previously only had tag/cost/nbv, which was enough for Transfer/Return/Disposal
@@ -317,7 +329,7 @@ textarea{resize:vertical;min-height:60px}
 <aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#12141a" stroke="#12141a" stroke-width="1" stroke-linejoin="round"/></svg></div>
-    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.14.1 · BNGS + BPNT</div></div>
+    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.14.2 · BNGS + BPNT</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Overview</div>
@@ -4356,7 +4368,13 @@ function lvlBadge(l){if(l==='SUP')return'<span class="badge b-teal">SUP</span>';
 function monthsBetween(d1,d2){return Math.max(0,(d2.getFullYear()-d1.getFullYear())*12+(d2.getMonth()-d1.getMonth()))}
 function calcNBV(a,asOf){asOf=asOf||new Date();
   if(a.status==='Disposed'&&a.disposedDate&&new Date(a.disposedDate)<=asOf)return{depr:a.cost,nbv:0};
-  const mo=monthsBetween(new Date(a.date),asOf);const depr=Math.min(a.cost,Math.round(a.cost/(a.life*12)*mo));
+  const dObj=new Date(a.date);
+  /* v2.14.2 fix: a blank/invalid in-service date used to make monthsBetween→NaN, and that NaN would
+     silently poison the WHOLE dashboard NBV total (Array.reduce sum) and category %'s (rendered as a
+     misleading "฿0" / "NaN%" instead of surfacing the real data problem). Treat an invalid date as
+     "just registered, not yet depreciating" (full cost as NBV) — a safe, explainable default. */
+  if(isNaN(dObj))return{depr:0,nbv:a.cost};
+  const mo=monthsBetween(dObj,asOf);const depr=Math.min(a.cost,Math.round(a.cost/(a.life*12)*mo));
   return{depr,nbv:a.cost-depr}}
 function isEndOfLife(a){if(a.estimatedEOL)return new Date(a.estimatedEOL)<=new Date();return monthsBetween(new Date(a.date),new Date())>=a.life*12;}
 /* eolDate — ยืนยันแล้วว่า "01_FA_Assets" master (จากไฟล์ 00__BNEXT_Asset_List_24_flr_master.xlsx) มี
