@@ -1,4 +1,14 @@
 <!DOCTYPE html>
+<!-- Asset_App.html — v2.14.1 (2026-07-19): Batch Register payload fix —
+     createBatchRequest()'s detail.items[] now includes desc/prefix/serial/faNo/life per item when
+     type==='Register' (previously only had tag/cost/nbv, which was enough for Transfer/Return/Disposal
+     acting on EXISTING assets, but left Register's App Intake Flow with no creation fields — it silently
+     created only 1 SharePoint row per batch, with a blank description, instead of one row per asset).
+     submitAddAssetBatch() now also passes the batch's shared cc/mainAccount/subAccount/site/date into
+     detail, so the Intake Flow can apply them to every row it creates in the batch loop.
+     Companion Flow fix (App Intake Flow, done alongside this): "Create_item_1" (Register row creation)
+     needs to loop (Apply to Each over detail.items) and create one row per item when detail.isBatch is
+     true, instead of creating a single row from top-level detail fields. -->
 <!-- Asset_App.html — v2.14.0 (2026-07-19): Batch requests → "1 batch = 1 request row = 1 approval flow" —
      (1) createBatchRequest(): new unified function creating ONE 02_FA_Requests row referencing an array
          of asset tags (detail.items), used by Transfer/Return/Disposal batch submission (txpSubmitBatch)
@@ -307,7 +317,7 @@ textarea{resize:vertical;min-height:60px}
 <aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#12141a" stroke="#12141a" stroke-width="1" stroke-linejoin="round"/></svg></div>
-    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.14.0 · BNGS + BPNT</div></div>
+    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.14.1 · BNGS + BPNT</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Overview</div>
@@ -4523,7 +4533,13 @@ function createRequest(type,tag,detail,by){const a=S.assets.find(x=>x.tag===tag)
 function createBatchRequest(type,tags,detail,by){
   const assets=tags.map(t=>S.assets.find(x=>x.tag===t)).filter(Boolean);
   if(!assets.length)return null;
-  const items=assets.map(a=>({tag:a.tag,cost:a.cost,nbv:type==='Register'?a.cost:calcNBV(a).nbv}));
+  const items=assets.map(a=>{
+    const base={tag:a.tag,cost:a.cost,nbv:type==='Register'?a.cost:calcNBV(a).nbv};
+    // Register creates NEW SharePoint rows per item — App Intake Flow needs full creation fields here,
+    // not just tag/cost/nbv (those alone are enough for Transfer/Return/Disposal, which act on assets
+    // that already exist in 01_FA_Assets_Import).
+    if(type==='Register')Object.assign(base,{desc:a.desc,prefix:a.prefix,serial:a.serial||'',faNo:a.faNo||'',life:a.life});
+    return base;});
   const totalNbv=items.reduce((s,it)=>s+(it.nbv||0),0);
   // single owner/responsible-person reference drives the whole batch's approval routing
   // (matches existing batch UI convention: one toOwner/respOwner field per batch, not per-item)
@@ -4702,7 +4718,7 @@ function submitAddAssetBatch(){const entity=document.getElementById('ab-entity')
     const a={tag,prefix:d.prefix,desc:d.desc,entity,owner,cc,mainAccount,subAccount,site,faNo:d.faNo,
       cost:d.cost,date,life:d.life,status:'Pending Register',serial:d.serial,disposalType:'',disposedDate:'',returnReason:''};
     S.assets.unshift(a);newTags.push(tag);});
-  const req=createBatchRequest('Register',newTags,{owner});
+  const req=createBatchRequest('Register',newTags,{owner,cc,mainAccount,subAccount,site,date});
   closeModals();renderAll();
   toast(req?('✓ '+req.id+' created — batch '+newTags.length+' รายการ รออนุมัติ '+lvlLabel(req)):'⚠ เกิดข้อผิดพลาดในการสร้างคำขอ');}
 
