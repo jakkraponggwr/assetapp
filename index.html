@@ -1,4 +1,24 @@
 <!DOCTYPE html>
+<!-- Asset_App.html — v2.15.0 (2026-07-19): UI polish + Requests sync batch-metadata bugfix —
+     (1) Fixed bug: syncRequestsFromSharePoint()'s mapping never reconstructed isBatch/tags from the
+     parsed detail_json (only single-item fields were mapped), so a batch request that displayed
+     correctly right after submission would silently fall back to single-asset display (showing only
+     the first tag, no "Assets ใน batch" list) the moment the user synced. Now derives isBatch/tags from
+     detail.isBatch / detail.items on every sync, same as the in-memory object created at submit time.
+     (2) Type color-coding, consistent across Approvals (list cards + detail panel) and Requests log
+     (table + timeline): Register=green, Transfer=yellow (new --yellow/--yellow-dim CSS vars added for
+     both themes), Return=amber/orange, Disposal=red. Approval list rows also get a colored left-border
+     accent matching the type.
+     (3) Requests log now defaults to Timeline view instead of Table (rqViewMode + toggle button state +
+     card visibility all updated to match). -->
+<!-- Asset_App.html — v2.14.3 (2026-07-19): Fix TriggerInputSchemaMismatch on nbv_at_request —
+     The Power Automate Intake Flow's HTTP trigger schema declares nbv_at_request as Integer. Real
+     imported assets can have non-round costs (decimals), so a batch's summed NBV (createBatchRequest)
+     or even a single asset's cost-minus-depreciation (createRequest) could come out as a JSON float
+     (e.g. 401244.33), which Power Automate's schema validation rejects outright — the HTTP call never
+     even reaches the flow's run history, it's bounced at the trigger with a 400. Both send sites now
+     wrap nbv_at_request in Math.round() before sending. Display values (fmt()) already round for the
+     UI, so this doesn't change anything the user sees — it only fixes what goes out over the wire. -->
 <!-- Asset_App.html — v2.14.2 (2026-07-19): Dashboard NBV total robustness —
      calcNBV() now treats a blank/invalid in-service date as "just registered, no depreciation yet"
      (nbv = full cost) instead of returning NaN. Previously a single asset with a bad date silently
@@ -83,7 +103,7 @@
 --text:#f1f2f6;--text2:#9799ac;--text3:#5c5f72;
 --teal:#2fd4a4;--teal-dim:#0d2b22;--purple:#a78bfa;--purple-dim:#211840;
 --blue:#5b9dff;--blue-dim:#16233d;--amber:#f5a623;--amber-dim:#2e2108;
---red:#f0605c;--red-dim:#2d1010;--green:#3ecf7a;--green-dim:#0f2d1e;
+--red:#f0605c;--red-dim:#2d1010;--green:#3ecf7a;--green-dim:#0f2d1e;--yellow:#e0c93a;--yellow-dim:#2e2a0a;
 --accent-grad:linear-gradient(135deg,#22d3ee,#059669);
 --radius:9px;--radius-lg:14px;--ease:cubic-bezier(.2,.7,.3,1);
 --shadow:0 6px 20px -6px rgba(0,0,0,.5);--shadow-sm:0 4px 14px -2px rgba(0,0,0,.4),0 2px 5px rgba(0,0,0,.3);--shadow-md:0 10px 28px -6px rgba(0,0,0,.55),0 3px 8px rgba(0,0,0,.35)}
@@ -91,7 +111,7 @@
 --text:#181a20;--text2:#5b5e6d;--text3:#767a8a;
 --teal:#0a7d5a;--teal-dim:#e1f5ee;--purple:#6435d1;--purple-dim:#efeafe;
 --blue:#2f6fe0;--blue-dim:#e8f0fe;--amber:#95610a;--amber-dim:#fdf1dc;
---red:#c53434;--red-dim:#fbeaea;--green:#177a44;--green-dim:#e7f7ed;
+--red:#c53434;--red-dim:#fbeaea;--green:#177a44;--green-dim:#e7f7ed;--yellow:#8a7a0a;--yellow-dim:#faf3d1;
 --shadow:0 10px 24px -10px rgba(20,20,40,.15);--shadow-sm:0 4px 14px -2px rgba(20,20,40,.1),0 2px 5px rgba(20,20,40,.06);--shadow-md:0 12px 28px -6px rgba(20,20,40,.16),0 3px 8px rgba(20,20,40,.08)}
 *{box-sizing:border-box;margin:0;padding:0}
 *:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
@@ -329,7 +349,7 @@ textarea{resize:vertical;min-height:60px}
 <aside class="sidebar" id="sidebar">
   <div class="logo">
     <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#12141a" stroke="#12141a" stroke-width="1" stroke-linejoin="round"/></svg></div>
-    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.14.2 · BNGS + BPNT</div></div>
+    <div class="logo-text"><div class="logo-title">BPNT Asset App</div><div class="logo-sub">v2.15.0 · BNGS + BPNT</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Overview</div>
@@ -536,10 +556,10 @@ textarea{resize:vertical;min-height:60px}
   <div class="toolbar"><input id="rq-search" data-ac="rq" placeholder="ค้นหา request / tag / approver..." style="width:230px" oninput="renderRequests()" autocomplete="off"><select id="rq-type" onchange="renderRequests()"><option value="">All types</option><option>Register</option><option>Transfer</option><option>Return</option><option>Disposal</option></select>
   <select id="rq-status" onchange="renderRequests()"><option value="">All status</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
   <div class="ent-switch" style="margin-left:auto">
-    <button class="ent-pill active" id="rq-view-table" onclick="setRqView('table')">📋 Table</button>
-    <button class="ent-pill" id="rq-view-timeline" onclick="setRqView('timeline')">🕒 Timeline</button>
+    <button class="ent-pill" id="rq-view-table" onclick="setRqView('table')">📋 Table</button>
+    <button class="ent-pill active" id="rq-view-timeline" onclick="setRqView('timeline')">🕒 Timeline</button>
   </div></div>
-  <div class="card" id="rq-table-card" style="margin-top:14px"><div class="table-wrap"><table><thead><tr>
+  <div class="card" id="rq-table-card" style="margin-top:14px;display:none"><div class="table-wrap"><table><thead><tr>
     <th class="th-sort" onclick="toggleSort(rqSort,'request',renderRequests)">Request<span id="rq-sort-request"></span></th>
     <th class="th-sort" onclick="toggleSort(rqSort,'type',renderRequests)">Type<span id="rq-sort-type"></span></th>
     <th class="th-sort" onclick="toggleSort(rqSort,'tag',renderRequests)">Asset<span id="rq-sort-tag"></span></th>
@@ -550,7 +570,7 @@ textarea{resize:vertical;min-height:60px}
     <th class="th-sort" onclick="toggleSort(rqSort,'status',renderRequests)">Status<span id="rq-sort-status"></span></th>
     <th>Approver</th>
   </tr></thead><tbody id="rq-rows"></tbody></table></div></div>
-  <div class="card" id="rq-timeline-card" style="margin-top:14px;display:none"><div style="padding:20px 24px" id="rq-timeline"></div></div>
+  <div class="card" id="rq-timeline-card" style="margin-top:14px"><div style="padding:20px 24px" id="rq-timeline"></div></div>
 </div>
 
 <div id="report" class="page">
@@ -4258,14 +4278,18 @@ async function syncRequestsFromSharePoint(){
   const result=await sendToFlowURLJSON(CFG.flowGetRequests,{});
   if(btn){btn.disabled=false;btn.textContent=orig;}
   if(!result||!Array.isArray(result.requests)){toast('❌ Sync ไม่สำเร็จ — เช็ค Flow URL / connection / Response format','warn');return;}
-  const mapped=result.requests.map(x=>({
+  const mapped=result.requests.map(x=>{
+    const detail=(()=>{try{return typeof x.detail_json==='string'?JSON.parse(x.detail_json):(x.detail_json||{});}catch(e){return {};}})();
+    const isBatch=!!detail.isBatch;
+    const tags=isBatch&&Array.isArray(detail.items)?detail.items.map(it=>it.tag).filter(Boolean):(x.asset_tag?[x.asset_tag]:[]);
+    return{
     id:x.request_id||'',type:x.request_type||'',entity:x.entity||'',tag:x.asset_tag||'',faNo:x.fa_number||'',
-    detail:(()=>{try{return typeof x.detail_json==='string'?JSON.parse(x.detail_json):(x.detail_json||{});}catch(e){return {};}})(),
+    detail,isBatch,tags,
     nbv:Number(x.nbv_at_request)||0,level:x.doa_level||'',approverName:x.approver||'',approverRole:'',
     isSupRoute:x.doa_level==='SUP',chain:null,ack:null,committeeRequired:false,
     by:x.requested_by||'',date:x.request_date||'',status:x.status||'Pending',
     approver:x.approver||'',rejectReason:x.approval_comment||'',approveDate:x.approve_date||''
-  })).filter(r=>r.id);
+  };}).filter(r=>r.id);
   S.requests=mapped;save();renderAll();
   toast('✓ Sync แล้ว '+mapped.length+' requests จาก SharePoint (แทนที่ข้อมูลเดิมในแอปทั้งหมด)');}
 
@@ -4532,7 +4556,7 @@ function createRequest(type,tag,detail,by){const a=S.assets.find(x=>x.tag===tag)
     sendToFlowURL(CFG.flowSubmit,{
       request_id:req.id, asset_tag:req.tag, fa_number:a.tag,
       entity:req.entity, request_type:req.type,
-      nbv_at_request:req.nbv, doa_level:req.level,
+      nbv_at_request:Math.round(req.nbv), doa_level:req.level,
       approval_chain:(req.chain||[]).map(p=>p.name), acknowledgement:req.ack,
       committee_required:req.committeeRequired,
       batch_group_id:detail.batchGroupId||'', batch_owner:detail.batchOwner||'',
@@ -4586,7 +4610,7 @@ function createBatchRequest(type,tags,detail,by){
     sendToFlowURL(CFG.flowSubmit,{
       request_id:req.id,asset_tag:tags[0],fa_number:tags[0],
       entity:req.entity,request_type:req.type,
-      nbv_at_request:req.nbv,doa_level:req.level,
+      nbv_at_request:Math.round(req.nbv),doa_level:req.level,
       approval_chain:(req.chain||[]).map(p=>p.name),acknowledgement:req.ack,
       committee_required:req.committeeRequired,
       batch_group_id:req.id,batch_owner:ownerRef,
@@ -5080,9 +5104,9 @@ function renderApprovals(){const q=(document.getElementById('appr-search').value
   const notifBadge=document.getElementById('notif-badge');if(notifBadge){notifBadge.style.display=allPend?'flex':'none';notifBadge.textContent=allPend>9?'9+':allPend;}
   if(!pend.find(r=>r.id===apprSelectedId))apprSelectedId=pend.length?pend[0].id:null;
   document.getElementById('appr-list-panel').innerHTML=pend.length?pend.map(r=>{const a=S.assets.find(x=>x.tag===r.tag);
-    return '<div class="appr-list-row'+(r.id===apprSelectedId?' active':'')+'" onclick="selectApproval(\''+r.id+'\')">'
+    return '<div class="appr-list-row'+(r.id===apprSelectedId?' active':'')+'" style="border-left:3px solid '+rqTypeColor(r.type)+'" onclick="selectApproval(\''+r.id+'\')">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span class="mono" style="font-size:12px;color:var(--text2)">'+r.id+'</span>'+lvlBadge(r.level)+'</div>'
-      +'<div style="font-size:12.5px;font-weight:600;margin-top:4px">'+r.type+' <span class="mono text-muted" style="font-weight:400">'+r.tag+'</span></div>'
+      +'<div style="font-size:12.5px;font-weight:600;margin-top:4px"><span style="color:'+rqTypeColor(r.type)+'">'+r.type+(r.isBatch?' ×'+r.tags.length:'')+'</span> <span class="mono text-muted" style="font-weight:400">'+r.tag+'</span></div>'
       +'<div class="text-muted" style="font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(a?a.desc:'⚠ ไม่พบ asset')+'</div>'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px">'+entBadge(r.entity)+'<span class="mono text-muted" style="font-size:11px">฿'+fmt(r.nbv)+'</span></div>'
       +'</div>';}).join(''):'<div class="empty" style="padding:36px 14px">ไม่มีคำขอรออนุมัติ</div>';
@@ -5108,7 +5132,7 @@ function buildRequestDetailBody(r){const tags=r.tags||[r.tag];const a=S.assets.f
   const batchHtml=r.isBatch?'<div class="drawer-field"><label>Assets ใน batch ('+tags.length+' รายการ)</label><div class="val" style="font-size:12.5px;line-height:1.7;max-height:180px;overflow-y:auto">'+tags.map(t=>{const at=S.assets.find(x=>x.tag===t);return '<span class="mono">'+t+'</span>'+(at?' — '+at.desc:' — <span style="color:var(--red)">⚠ ไม่พบ asset</span>');}).join('<br>')+'</div></div>':'';
   return '<div style="padding:18px 20px;flex:1;overflow-y:auto">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'
-    +'<div><span class="mono" style="color:var(--text2);font-size:12.5px">'+r.id+'</span> <span class="badge b-pending" style="margin-left:6px">'+r.type+'</span> '+entBadge(r.entity)+(r.isBatch?' <span class="badge b-active">Batch ×'+tags.length+'</span>':'')+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+(!r.isBatch&&!a?' <span class="badge b-disposed">⚠ ไม่พบ asset</span>':'')+'</div>'
+    +'<div><span class="mono" style="color:var(--text2);font-size:12.5px">'+r.id+'</span> <span class="badge" style="margin-left:6px;background:'+rqTypeDim(r.type)+';color:'+rqTypeColor(r.type)+'">'+r.type+'</span> '+entBadge(r.entity)+(r.isBatch?' <span class="badge b-active">Batch ×'+tags.length+'</span>':'')+(r.committeeRequired?' <span class="badge b-disposed">Committee+CEO</span>':'')+(!r.isBatch&&!a?' <span class="badge b-disposed">⚠ ไม่พบ asset</span>':'')+'</div>'
     +'</div>'
     +buildStepTracker(r)
     +'<div style="border-top:1px solid var(--border);margin:4px 0 14px"></div>'
@@ -5124,20 +5148,20 @@ function renderApprovalDetail(){const panel=document.getElementById('appr-detail
   const r=S.requests.find(x=>x.id===apprSelectedId);
   if(!r){panel.innerHTML='<div class="empty" style="padding:60px 20px">เลือกคำขอทางซ้ายเพื่อดูรายละเอียด</div>';return;}
   panel.innerHTML=buildRequestDetailBody(r)+buildRequestFooterHtml(r);}
-let rqViewMode='table';
+let rqViewMode='timeline';
 function setRqView(mode){rqViewMode=mode;
   document.getElementById('rq-view-table').classList.toggle('active',mode==='table');
   document.getElementById('rq-view-timeline').classList.toggle('active',mode==='timeline');
   document.getElementById('rq-table-card').style.display=mode==='table'?'block':'none';
   document.getElementById('rq-timeline-card').style.display=mode==='timeline'?'block':'none';}
-function rqTypeColor(type){return type==='Register'?'var(--blue)':type==='Transfer'?'var(--purple)':type==='Return'?'var(--teal)':'var(--red)';}
-function rqTypeDim(type){return type==='Register'?'var(--blue-dim)':type==='Transfer'?'var(--purple-dim)':type==='Return'?'var(--teal-dim)':'var(--red-dim)';}
+function rqTypeColor(type){return type==='Register'?'var(--green)':type==='Transfer'?'var(--yellow)':type==='Return'?'var(--amber)':'var(--red)';}
+function rqTypeDim(type){return type==='Register'?'var(--green-dim)':type==='Transfer'?'var(--yellow-dim)':type==='Return'?'var(--amber-dim)':'var(--red-dim)';}
 function renderRequests(){const ft=document.getElementById('rq-type').value,fs=document.getElementById('rq-status').value,q=(document.getElementById('rq-search').value||'').toLowerCase().trim();
   const list=sortRows(S.requests.filter(inScope).filter(r=>(!ft||r.type===ft)&&(!fs||r.status===fs))
     .filter(r=>{if(!q)return true;const a=S.assets.find(x=>x.tag===r.tag);
       return r.id.toLowerCase().includes(q)||r.tag.toLowerCase().includes(q)||(r.approverName||'').toLowerCase().includes(q)||(r.by||'').toLowerCase().includes(q)||(a&&a.desc&&a.desc.toLowerCase().includes(q));}),rqSort,rqColValue);
   paintSortHeaders('rq',rqSort,['request','type','tag','entity','nbv','level','status']);
-  document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr style="cursor:pointer" onclick="openRequestDrawer(\''+r.id+'\')"><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td class="mono">'+r.tag+(r.isBatch?' <span class="text-muted" style="font-size:10.5px">+'+(r.tags.length-1)+'</span>':'')+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+fmtDDMMYYYY(r.approveDate):'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';
+  document.getElementById('rq-rows').innerHTML=list.length?list.map(r=>'<tr style="cursor:pointer" onclick="openRequestDrawer(\''+r.id+'\')"><td class="mono">'+r.id+'</td><td><span class="badge" style="background:'+rqTypeDim(r.type)+';color:'+rqTypeColor(r.type)+'">'+r.type+'</span></td><td class="mono">'+r.tag+(r.isBatch?' <span class="text-muted" style="font-size:10.5px">+'+(r.tags.length-1)+'</span>':'')+'</td><td>'+entBadge(r.entity)+'</td><td class="text-muted" style="max-width:260px">'+summaryOf(r)+'</td><td class="text-right">฿'+fmt(r.nbv)+'</td><td>'+lvlBadge(r.level)+'</td><td>'+statusBadge(r.status==='Pending'?'Pending':r.status==='Approved'?'Active':'Rejected').replace('Active','Approved').replace('>Pending<','>Pending<')+'</td><td class="text-muted">'+(r.approver||'—')+(r.approveDate?'<br>'+fmtDDMMYYYY(r.approveDate):'')+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">—</td></tr>';
   const byDate=sortRows(list,{key:'date',dir:-1},(r,k)=>new Date(r[k]).getTime());
   const groups=[];byDate.forEach(r=>{const dObj=new Date(r.date);const key=isNaN(dObj)?'—':dObj.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
     let g=groups.find(x=>x.key===key);if(!g){g={key,items:[]};groups.push(g);}g.items.push(r);});
